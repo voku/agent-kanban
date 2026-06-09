@@ -1,0 +1,16 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use voku\AgentKanban\TodoBoardCli;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$rootPath = getcwd();
+if ($rootPath === false) {
+    fwrite(STDERR, "Could not determine current working directory.\n");
+    exit(1);
+}
+
+exit((new TodoBoardCli($rootPath))->run($argv));
