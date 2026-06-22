@@ -24,7 +24,9 @@ final class TodoBoardSource
 
     private const string BOARD_METADATA_FILE = 'todo/board.md';
 
-    private const string JIRA_CARD_DIRECTORY = 'todo/jira';
+    private const string PREFERRED_CARD_DIRECTORY = 'todo/cards';
+
+    private const string COMPATIBLE_CARD_DIRECTORY = 'todo/jira';
 
     private ?string $projectPrefix = null;
 
@@ -47,14 +49,32 @@ final class TodoBoardSource
 
     public function readBoardMarkdown(): string
     {
-        if (!is_dir($this->rootPath . '/' . self::JIRA_CARD_DIRECTORY)) {
+        $cardDirectory = $this->resolveCardDirectory();
+        if ($cardDirectory === null) {
             return $this->readLegacyTodo();
         }
 
-        $cards = $this->readCards();
+        $cards = $this->readCards($cardDirectory);
         $metadata = $this->readBoardMetadata();
 
-        return $this->buildBoardMarkdown($cards, $metadata);
+        return $this->buildBoardMarkdown($cards, $metadata, $cardDirectory);
+    }
+
+    /**
+     * Local Markdown cards live under `todo/cards/`. `todo/jira/` is still
+     * supported so existing boards keep working without migration.
+     */
+    public function resolveCardDirectory(): ?string
+    {
+        if (is_dir($this->rootPath . '/' . self::PREFERRED_CARD_DIRECTORY)) {
+            return self::PREFERRED_CARD_DIRECTORY;
+        }
+
+        if (is_dir($this->rootPath . '/' . self::COMPATIBLE_CARD_DIRECTORY)) {
+            return self::COMPATIBLE_CARD_DIRECTORY;
+        }
+
+        return null;
     }
 
     public function readIndexMarkdown(): string
@@ -86,10 +106,10 @@ final class TodoBoardSource
      *     brief: string
      * }>
      */
-    private function readCards(): array
+    private function readCards(string $cardDirectory): array
     {
         $prefix = $this->getProjectPrefix();
-        $pattern = $this->rootPath . '/' . self::JIRA_CARD_DIRECTORY . '/' . $prefix . '-*.md';
+        $pattern = $this->rootPath . '/' . $cardDirectory . '/' . $prefix . '-*.md';
         $files = glob($pattern);
         if ($files === false) {
             throw new RuntimeException('Could not list TODO card files.');
@@ -212,10 +232,11 @@ final class TodoBoardSource
         $path = $this->rootPath . '/' . self::BOARD_METADATA_FILE;
         $content = file_get_contents($path);
         $prefix = $this->projectPrefix ?? 'ITPNG';
+        $defaultSource = ($this->resolveCardDirectory() ?? self::COMPATIBLE_CARD_DIRECTORY) . '/*.md';
         if ($content === false) {
             return [
                 'done_count' => 0,
-                'source'     => 'todo/jira/*.md',
+                'source'     => $defaultSource,
                 'project_prefix' => $prefix,
             ];
         }
@@ -228,7 +249,7 @@ final class TodoBoardSource
 
         return [
             'done_count' => (int)($metadata['Done count'] ?? 0),
-            'source'     => $metadata['Source'] ?? 'todo/jira/*.md',
+            'source'     => $metadata['Source'] ?? $defaultSource,
             'project_prefix' => $prefixVal,
         ];
     }
@@ -256,11 +277,12 @@ final class TodoBoardSource
      *     project_prefix: string
      * } $metadata
      */
-    private function buildBoardMarkdown(array $cards, array $metadata): string
+    private function buildBoardMarkdown(array $cards, array $metadata, string $cardDirectory): string
     {
         $cardsByLane = $this->cardsByLane($cards);
         $doneCount = $metadata['done_count'];
         $prefix = $this->getProjectPrefix();
+        $cardGlob = $cardDirectory . '/*.md';
 
         return implode("\n", [
             '# TODO for Coding Agents',
@@ -270,7 +292,7 @@ final class TodoBoardSource
             '### ALIGN',
             '',
             '- Problem: keep repository-local TODO work readable by storing active work in topic files.',
-            '- Criteria: `todo/jira/*.md` is the source of truth for Jira-derived board cards; `TODO.md` is only the entrypoint.',
+            '- Criteria: `' . $cardGlob . '` is the source of truth for board cards; `TODO.md` is only the entrypoint.',
             '- Constraints: no raw Jira comments, attachments, full descriptions, secrets, or customer data in tracked repo docs; production stability and privacy first.',
             '',
             '### Source',
@@ -283,14 +305,14 @@ final class TodoBoardSource
             '',
             '- WIP limit for agent implementation: `3` cards',
             '- Pull rule: pull from `READY` only after current implementation WIP is below the limit.',
-            '- Done rule: code change is done only after targeted validation in Docker, Jira outcome sync, a compact `MEMORY.md` entry, and a `make memory_review` pass before pruning the card file from `todo/jira/`.',
+            '- Done rule: code change is done only after targeted validation in Docker, Jira outcome sync, a compact `MEMORY.md` entry, and a `make memory_review` pass before pruning the card file from `' . $cardDirectory . '/`.',
             '- Privacy rule: use Jira keys and summaries here; reopen Jira for full request details instead of copying payloads.',
             '- Breaking-change rule: forbidden without explicit user approval and ADR.',
             '',
             '### Kanban Operating Model',
             '',
             '1. Jira remains the source of truth for priority, full descriptions, comments, attachments, stakeholder discussion, and flow metrics.',
-            '2. `todo/jira/*.md` is the source of truth for repository-local execution state.',
+            '2. `' . $cardGlob . '` is the source of truth for repository-local execution state.',
             '3. `TODO.md` is the short entrypoint only; do not add long task bodies there.',
             '4. Work starts from `READY`; do not pull directly from `BACKLOG` into implementation without first refining the card.',
             '5. Keep implementation WIP at `3` cards across `READY`, `DOING`, and `VERIFY` work selected for an execution wave.',
@@ -309,7 +331,7 @@ final class TodoBoardSource
             '### Card Update Protocol',
             '',
             '1. Reopen the Jira card and verify the tracked summary is still accurate.',
-            '2. Edit exactly one file under `todo/jira/`.',
+            '2. Edit exactly one file under `' . $cardDirectory . '/`.',
             '3. Keep `Lane`, `Status`, `Fit`, `Next`, and validation fields in that file consistent.',
             '4. If the card is leaving the active board as done, add a compact `MEMORY.md` entry, run `make memory_review`, and then prune the card file.',
             '5. Run `make todo_board_verify`.',
@@ -337,7 +359,7 @@ final class TodoBoardSource
             '- Query rule: before re-screening a touched card, read the board index and existing compiled context first.',
             '- Ingest rule: when a card is screened, narrowed, blocked, or moved to `VERIFY`, refresh the repo-local handoff so the next pass does not repeat the same investigation.',
             '',
-            $this->buildDomainMapSection($cards),
+            $this->buildDomainMapSection($cards, $cardDirectory),
             '',
             '### Next Pull Candidates',
             '',
@@ -448,7 +470,7 @@ final class TodoBoardSource
     /**
      * @param list<array<string, int|string>> $cards
      */
-    private function buildDomainMapSection(array $cards): string
+    private function buildDomainMapSection(array $cards, string $cardDirectory): string
     {
         $counts = [];
         foreach ($cards as $card) {
@@ -465,7 +487,7 @@ final class TodoBoardSource
         ];
 
         foreach ($counts as $domain => $count) {
-            $lines[] = '| ' . $this->escapeMarkdownCell($domain) . ' | ' . $count . ' | See card files in `todo/jira/`. |';
+            $lines[] = '| ' . $this->escapeMarkdownCell($domain) . ' | ' . $count . ' | See card files in `' . $cardDirectory . '/`. |';
         }
 
         return implode("\n", $lines);

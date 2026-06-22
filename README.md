@@ -8,7 +8,7 @@ We provide here a CLI utility and programmatic API to handle split-file Kanban s
 
 ## Features
 
-- **Split-File Board Management**: Aggregates a directory of individual Jira cards (`todo/jira/ITPNG-*.md`) and a metadata file (`todo/board.md`) into a single consolidated board markdown document.
+- **Split-File Board Management**: Aggregates a directory of individual Markdown cards (`todo/cards/ITPNG-*.md`) and a metadata file (`todo/board.md`) into a single consolidated board markdown document. Local boards work fully offline; `todo/jira/ITPNG-*.md` is also still supported.
 - **Strict Verifier (`TodoBoardVerifier`)**: Validates the integrity of the board against a set of robust constraints (WIP limits, status mappings, ticket uniqueness, task briefs, matching counts).
 - **Flexible Rendering (`TodoBoardCli render`)**: Outputs a clean Markdown board representation with query options to filter by lane, assignee, domain, status, search string, and limit.
 - **Jira Synchronization (`TodoBoardCli jira-sync`)**: Syncs local card metadata with remote Jira issue states.
@@ -42,18 +42,20 @@ vendor/
 
 ## The Markdown Kanban Architecture
 
-The board operates on a split-file architecture to avoid git conflicts during concurrent agent execution:
+The board operates on a split-file architecture to avoid git conflicts during concurrent agent execution. Cards are plain Markdown files and work offline; Jira sync (below) is optional and requires a host-provided `JiraIssueProvider`.
+
+`todo/cards/` is the preferred local card directory. `todo/jira/` is also supported, so existing boards keep working without migration. If both directories exist, `todo/cards/` takes precedence.
 
 ### 1. Board Metadata (`todo/board.md`)
 Maintains board-wide variables:
 ```markdown
 # Board Metadata
 
-- **Source:** `todo/jira/*.md`
+- **Source:** `todo/cards/*.md`
 - **Done count:** 301
 ```
 
-### 2. Card Source Files (`todo/jira/ITPNG-*.md`)
+### 2. Card Source Files (`todo/cards/ITPNG-*.md`)
 Each ticket has its own Markdown file with frontmatter metadata:
 ```markdown
 # ITPNG-123: Implement secure form validation
@@ -126,7 +128,7 @@ Run the package binary from the project root directory:
 ## Board Verification Rules
 
 The `TodoBoardVerifier` executes the following checks:
-1. **Entrypoint Integrity**: `TODO.md` in the workspace root must point to `todo/jira/` and must not contain raw lane tables directly.
+1. **Entrypoint Integrity**: `TODO.md` in the workspace root must point to the active card directory (`todo/cards/`, or `todo/jira/` if that's what the project uses) and must not contain raw lane tables directly.
 2. **Required Sections**: The compiled board must contain sections like `# TODO for Coding Agents`, `## ITPNG Markdown Board`, `### WIP Health`, etc.
 3. **Count Verification**: Lane headers (e.g. `#### READY (Count: 3)`) must match the actual number of files in that lane.
 4. **Valid Status Mapping**:

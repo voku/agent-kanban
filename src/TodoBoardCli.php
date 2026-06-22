@@ -55,6 +55,12 @@ final class TodoBoardCli
         return $this->projectPrefix;
     }
 
+    private function getCardDirectory(): string
+    {
+        return (new TodoBoardSource($this->rootPath, $this->getProjectPrefix()))->resolveCardDirectory()
+            ?? 'todo/jira';
+    }
+
     /**
      * @param list<string> $argv
      */
@@ -282,7 +288,8 @@ final class TodoBoardCli
             return 0;
         }
 
-        fwrite(\STDERR, "Ticket not found in todo/jira/*.md: {$normalizedTicket}\n");
+        $cardDirectory = $this->getCardDirectory();
+        fwrite(\STDERR, "Ticket not found in {$cardDirectory}/*.md: {$normalizedTicket}\n");
 
         return 1;
     }
@@ -329,8 +336,9 @@ final class TodoBoardCli
         $boardCardsByTicket = $this->indexCardsByTicket($boardCards);
 
         if ($boardCardsByTicket === []) {
+            $cardDirectory = $this->getCardDirectory();
             echo "# TODO/Jira Sync\n\n";
-            echo "_No active Jira-derived board cards found in todo/jira/*.md._\n";
+            echo "_No active Jira-derived board cards found in {$cardDirectory}/*.md._\n";
 
             return 0;
         }
@@ -389,29 +397,31 @@ final class TodoBoardCli
             ];
         }
 
+        $cardDirectory = $this->getCardDirectory();
+
         echo "# TODO/Jira Sync\n\n";
         echo '- Project: `' . $this->escapeMarkdownCell($projectKey) . "`\n";
         echo '- Active Jira JQL: `' . $this->escapeMarkdownCell($activeJql) . "`\n";
         echo '- Board tickets checked: `' . count($boardCardsByTicket) . "`\n";
         echo '- Active Jira tickets returned: `' . count($activeIssuesByTicket) . "`\n";
         echo '- Board tickets no longer active in Jira: `' . count($boardTicketsNoLongerActive) . "`\n";
-        echo '- Active Jira tickets missing from todo/jira/*.md: `' . count($activeJiraTicketsMissingFromBoard) . "`\n";
+        echo '- Active Jira tickets missing from ' . $cardDirectory . '/*.md: `' . count($activeJiraTicketsMissingFromBoard) . "`\n";
         echo '- Active tickets with status/lane drift: `' . count($boardTicketsWithStatusDrift) . "`\n\n";
 
         echo "Use the first section to prune done tickets after copying any durable workflow lesson into `infra/doc/` or `infra/doc/agents/skills/`.\n\n";
 
         $this->printTableSection(
-            '## Remove from todo/jira after Jira sync',
+            '## Remove from ' . $cardDirectory . ' after Jira sync',
             ['Jira', 'Board lane', 'Reason', 'Board status', 'Summary'],
             $boardTicketsNoLongerActive,
             '_No active board tickets currently look done/removed in Jira._'
         );
 
         $this->printTableSection(
-            '## Add or refine in todo/jira',
+            '## Add or refine in ' . $cardDirectory,
             ['Jira', 'Jira status', 'Updated', 'Summary'],
             $activeJiraTicketsMissingFromBoard,
-            '_No active Jira tickets are missing from todo/jira/*.md._'
+            '_No active Jira tickets are missing from ' . $cardDirectory . '/*.md._'
         );
 
         $this->printTableSection(

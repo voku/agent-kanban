@@ -40,13 +40,20 @@ final class TodoBoardVerifier
         return $this->projectPrefix;
     }
 
+    private function getCardDirectory(): string
+    {
+        return (new TodoBoardSource($this->rootPath, $this->getProjectPrefix()))->resolveCardDirectory()
+            ?? 'todo/jira';
+    }
+
     public function run(): int
     {
         try {
+            $cardDirectory = $this->getCardDirectory();
             $index = $this->readIndex();
             $todo = $this->readTodo();
-            $this->assertNoSeparateBoardFile();
-            $this->assertIndexIsOnlyEntrypoint($index);
+            $this->assertNoSeparateBoardFile($cardDirectory);
+            $this->assertIndexIsOnlyEntrypoint($index, $cardDirectory);
             $this->assertRequiredSections($todo);
             $laneTickets = $this->parseLaneTickets($todo);
             $snapshotCounts = $this->parseBoardSnapshotCounts($todo);
@@ -55,7 +62,7 @@ final class TodoBoardVerifier
             $this->assertLaneCountsMatchHeadings($todo, $laneTickets);
             $this->assertLaneStatusesAreValid($laneTickets);
             $this->assertTicketsAreUnique($laneTickets);
-            $this->assertBoardPolicy($todo);
+            $this->assertBoardPolicy($todo, $cardDirectory);
             $this->assertLaneRules($todo);
             $this->assertAgentPullChecklist($todo);
             $this->assertSnapshotMatchesLanes($snapshotCounts, $laneTickets);
@@ -91,24 +98,24 @@ final class TodoBoardVerifier
         return str_replace("\r\n", "\n", $content);
     }
 
-    private function assertNoSeparateBoardFile(): void
+    private function assertNoSeparateBoardFile(string $cardDirectory): void
     {
         $prefix = $this->getProjectPrefix();
         $boardFile = $prefix . '_BOARD.md';
         $path = $this->rootPath . '/' . $boardFile;
         if (is_file($path)) {
-            throw new RuntimeException($boardFile . ' must not exist; keep the ' . $prefix . ' board source under todo/jira/.');
+            throw new RuntimeException($boardFile . ' must not exist; keep the ' . $prefix . ' board source under ' . $cardDirectory . '/.');
         }
     }
 
-    private function assertIndexIsOnlyEntrypoint(string $todoIndex): void
+    private function assertIndexIsOnlyEntrypoint(string $todoIndex, string $cardDirectory): void
     {
-        if (!str_contains($todoIndex, 'todo/jira/')) {
-            throw new RuntimeException('TODO.md must point agents to todo/jira/ as the board source.');
+        if (!str_contains($todoIndex, $cardDirectory . '/')) {
+            throw new RuntimeException('TODO.md must point agents to ' . $cardDirectory . '/ as the board source.');
         }
 
         if (str_contains($todoIndex, '#### READY')) {
-            throw new RuntimeException('TODO.md must stay a compact entrypoint; lane tables belong in todo/jira/*.md.');
+            throw new RuntimeException('TODO.md must stay a compact entrypoint; lane tables belong in ' . $cardDirectory . '/*.md.');
         }
     }
 
@@ -294,13 +301,13 @@ final class TodoBoardVerifier
         }
     }
 
-    private function assertBoardPolicy(string $todo): void
+    private function assertBoardPolicy(string $todo, string $cardDirectory): void
     {
         $section = $this->extractSection($todo, '### Board Policy', '### ');
         $requiredPolicyLines = [
             '- WIP limit for agent implementation: `3` cards',
             '- Pull rule: pull from `READY` only after current implementation WIP is below the limit.',
-            '- Done rule: code change is done only after targeted validation in Docker, Jira outcome sync, a compact `MEMORY.md` entry, and a `make memory_review` pass before pruning the card file from `todo/jira/`.',
+            '- Done rule: code change is done only after targeted validation in Docker, Jira outcome sync, a compact `MEMORY.md` entry, and a `make memory_review` pass before pruning the card file from `' . $cardDirectory . '/`.',
             '- Privacy rule: use Jira keys and summaries here; reopen Jira for full request details instead of copying payloads.',
         ];
 
