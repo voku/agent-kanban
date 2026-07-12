@@ -83,10 +83,13 @@ trace.
 | `6` | An `ExternalIssueProvider` threw while fetching remote issues. |
 
 `help`, `--help`, and `-h` always exit `0`. Data output always goes to
-STDOUT; errors, warnings, and the `verify` pass/fail line go to STDERR (for
-`verify`, per-violation lines go to STDERR for errors and STDOUT for
-warnings, so `--format=text` output stays scriptable — grep STDOUT for
-warnings, STDERR for anything that fails the build).
+STDOUT; errors and the `verify` pass/fail line go to STDERR. Warnings
+generally go to STDERR too (e.g. `card claim --move-to-doing`'s warning
+when the move itself couldn't happen), **except** `verify`'s per-violation
+output: error-severity violations go to STDERR, but warning-severity
+violations are the one case that goes to STDOUT instead, so
+`--format=text verify` output stays scriptable — grep STDOUT for warnings,
+STDERR for anything that fails the build.
 
 ## Examples
 
