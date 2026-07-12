@@ -179,6 +179,7 @@ Full API tour: `docs/php-api.md`.
 - [`docs/concurrency.md`](docs/concurrency.md) — transitions, claims, atomic writes
 - [`docs/external-issues.md`](docs/external-issues.md) — optional Jira-style sync
 - [`docs/agent-loop-integration.md`](docs/agent-loop-integration.md) — integrating with `voku/agent-loop`
+- [`docs/legacy-operating-prompt.md`](docs/legacy-operating-prompt.md) — the removed pre-1.0 operating-prompt prose, preserved for `agent-recall-compiler`
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — common errors and fixes
 - [`UPGRADING.md`](UPGRADING.md) — migrating from 0.x
 - [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md)

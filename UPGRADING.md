@@ -105,6 +105,19 @@ timestamp fields you touch are rewritten in canonical ISO-8601
 normal, deterministic output format, not a silent bulk migration. Running
 `agent-kanban verify` or any read-only command never writes anything.
 
+### The old operating-prompt prose is not carried forward here
+
+The pre-1.0 generated board Markdown also contained a static block of
+process prose (Board Policy, Kanban Operating Model, Lane Rules, Card
+Update Protocol, Agent Pull Checklist, Context Model) that told the agent
+how to behave around the board — hard-coded WIP limit, tracker name,
+`MEMORY.md`/`make memory_review` instructions included. That's policy, not
+board state, so it has no replacement inside `agent-kanban` 1.0. It is
+preserved verbatim, with a mapping to the typed `agent-kanban` calls that
+should feed an equivalent template, in `docs/legacy-operating-prompt.md` —
+the intended new home for it is `voku/agent-recall-compiler`, called from
+`agent-loop`.
+
 ### Recommended follow-up (optional, not required)
 
 - Add a `todo/kanban.config.json` (or `- **Project prefix:**` in

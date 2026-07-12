@@ -111,6 +111,18 @@ cross-package workflow governance. If an integration need would require
 adding one of these to `agent-kanban`, it belongs in `agent-loop` instead,
 consuming the typed contract above.
 
+## The old operating-prompt prose (moving to `agent-recall-compiler`)
+
+The pre-1.0 generated board Markdown mixed live board data with a static
+block of process instructions (WIP policy, pull rules, an "Agent Pull
+Checklist", etc.). That prose was project-specific policy, not board state,
+so it has no home in `agent-kanban` and was deleted rather than rebuilt here
+(see `UPGRADING.md`). It is preserved verbatim, with a mapping from each old
+section to the typed `agent-kanban` call that should feed it, in
+`docs/legacy-operating-prompt.md` — use that as the source document when
+rebuilding this as a template in `agent-recall-compiler` for `agent-loop` to
+call before/during kanban-maintenance sessions.
+
 ## Contract fixtures
 
 The following existing tests double as executable contract fixtures for
