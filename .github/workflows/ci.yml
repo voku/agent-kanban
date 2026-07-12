@@ -27,7 +27,16 @@ jobs:
       - name: Validate Composer metadata
         run: composer validate --strict
       - name: Run PHPUnit
-        run: composer test
+        shell: bash
+        run: |
+          set -o pipefail
+          composer test 2>&1 | tee phpunit-${{ matrix.php }}.log
+      - name: Upload PHPUnit diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-${{ matrix.php }}
+          path: phpunit-${{ matrix.php }}.log
       - name: Run PHPStan
         run: composer phpstan
       - name: Check coding style
