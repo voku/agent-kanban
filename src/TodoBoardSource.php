@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace voku\AgentKanban;
 
+use RuntimeException;
 use voku\AgentKanban\Cli\BoardContextFactory;
 use voku\AgentKanban\Rendering\BoardRenderer;
 use voku\AgentKanban\Repository\BoardMetadata;
@@ -25,6 +26,7 @@ final class TodoBoardSource
         if ($this->projectPrefix !== null) {
             return $this->projectPrefix;
         }
+
         if ($metadata->projectPrefix !== null) {
             return $metadata->projectPrefix;
         }
@@ -45,7 +47,7 @@ final class TodoBoardSource
             $metadata->doneCount,
         );
 
-        return (new BoardRenderer())->render($board);
+        return (new BoardRenderer())->renderFull($board);
     }
 
     public function resolveCardDirectory(): ?string
@@ -60,7 +62,7 @@ final class TodoBoardSource
         $path = $this->rootPath . '/TODO.md';
         $content = file_get_contents($path);
         if ($content === false) {
-            throw new \RuntimeException('Could not read TODO.md');
+            throw new RuntimeException('Could not read TODO.md');
         }
 
         return str_replace(["\r\n", "\r"], "\n", $content);
