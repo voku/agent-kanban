@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace voku\AgentKanban;
 
-use InvalidArgumentException;
-use RuntimeException;
-
+/**
+ * @deprecated since 0.2.0, kept as a compatibility value object for the
+ *             deprecated {@see TodoBoardCli}. Use
+ *             {@see \voku\AgentKanban\Domain\Card} for the full, typed card
+ *             model instead. See UPGRADING.md.
+ */
 final readonly class TodoBoardCard
 {
     public function __construct(

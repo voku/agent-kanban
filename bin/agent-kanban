@@ -3,7 +3,7 @@
 
 declare(strict_types=1);
 
-use voku\AgentKanban\TodoBoardCli;
+use voku\AgentKanban\Cli\CliApplication;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -13,4 +13,4 @@ if ($rootPath === false) {
     exit(1);
 }
 
-exit((new TodoBoardCli($rootPath))->run($argv));
+exit((new CliApplication($rootPath))->run($argv));

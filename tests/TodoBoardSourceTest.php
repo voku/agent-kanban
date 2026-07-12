@@ -45,8 +45,8 @@ final class TodoBoardSourceTest extends TestCase
     public function testReadBoardMarkdownWithPrefixFromMetadata(): void
     {
         $tempDir = sys_get_temp_dir() . '/agent_kanban_test_' . uniqid();
-        mkdir($tempDir, 0777, true);
-        mkdir($tempDir . '/todo/jira', 0777, true);
+        mkdir($tempDir, 0o777, true);
+        mkdir($tempDir . '/todo/jira', 0o777, true);
 
         file_put_contents($tempDir . '/TODO.md', 'This project uses a split-file Kanban board');
         file_put_contents($tempDir . '/todo/board.md', "# Board Metadata\n\n- **Project prefix:** `ABC`\n- **Done count:** 5\n");
@@ -71,8 +71,8 @@ final class TodoBoardSourceTest extends TestCase
     public function testReadBoardMarkdownFromPreferredCardsDirectory(): void
     {
         $tempDir = sys_get_temp_dir() . '/agent_kanban_test_' . uniqid();
-        mkdir($tempDir, 0777, true);
-        mkdir($tempDir . '/todo/cards', 0777, true);
+        mkdir($tempDir, 0o777, true);
+        mkdir($tempDir . '/todo/cards', 0o777, true);
 
         file_put_contents($tempDir . '/TODO.md', 'This project uses a split-file Kanban board');
         file_put_contents($tempDir . '/todo/board.md', "# Board Metadata\n\n- **Project prefix:** `ABC`\n- **Done count:** 5\n");
@@ -99,8 +99,8 @@ final class TodoBoardSourceTest extends TestCase
     public function testPreferredCardsDirectoryWinsOverCompatibleJiraDirectory(): void
     {
         $tempDir = sys_get_temp_dir() . '/agent_kanban_test_' . uniqid();
-        mkdir($tempDir . '/todo/cards', 0777, true);
-        mkdir($tempDir . '/todo/jira', 0777, true);
+        mkdir($tempDir . '/todo/cards', 0o777, true);
+        mkdir($tempDir . '/todo/jira', 0o777, true);
 
         file_put_contents($tempDir . '/todo/cards/ABC-1.md', "# ABC-1: Preferred\n\n- **Ticket:** ABC-1\n- **Lane:** READY\n- **Status:** Selected\n");
         file_put_contents($tempDir . '/todo/jira/ABC-2.md', "# ABC-2: Compatible\n\n- **Ticket:** ABC-2\n- **Lane:** READY\n- **Status:** Selected\n");
@@ -121,7 +121,7 @@ final class TodoBoardSourceTest extends TestCase
     public function testResolveCardDirectoryReturnsNullWhenNeitherDirectoryExists(): void
     {
         $tempDir = sys_get_temp_dir() . '/agent_kanban_test_' . uniqid();
-        mkdir($tempDir, 0777, true);
+        mkdir($tempDir, 0o777, true);
 
         $source = new TodoBoardSource($tempDir, 'ABC');
 

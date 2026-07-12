@@ -13,7 +13,7 @@ final class TodoBoardVerifierTest extends TestCase
     {
         $rootPath = __DIR__ . '/fixtures/project-root';
         $verifier = new TodoBoardVerifier($rootPath);
-        
+
         // Suppress stdout output during the test execution.
         $this->expectOutputRegex('/TODO board verification passed\./');
         $exitCode = $verifier->run();
@@ -24,8 +24,8 @@ final class TodoBoardVerifierTest extends TestCase
     public function testVerifierPassesOnCustomPrefix(): void
     {
         $tempDir = sys_get_temp_dir() . '/agent_kanban_test_verifier_' . uniqid();
-        mkdir($tempDir, 0777, true);
-        mkdir($tempDir . '/todo/jira', 0777, true);
+        mkdir($tempDir, 0o777, true);
+        mkdir($tempDir . '/todo/jira', 0o777, true);
 
         // Create valid structure
         file_put_contents($tempDir . '/TODO.md', "This project uses a split-file Kanban board under todo/jira/\n");
@@ -51,8 +51,8 @@ final class TodoBoardVerifierTest extends TestCase
     public function testVerifierPassesOnPreferredCardsDirectory(): void
     {
         $tempDir = sys_get_temp_dir() . '/agent_kanban_test_verifier_' . uniqid();
-        mkdir($tempDir, 0777, true);
-        mkdir($tempDir . '/todo/cards', 0777, true);
+        mkdir($tempDir, 0o777, true);
+        mkdir($tempDir . '/todo/cards', 0o777, true);
 
         file_put_contents($tempDir . '/TODO.md', "This project uses a split-file Kanban board under todo/cards/\n");
         file_put_contents($tempDir . '/todo/board.md', "# Board Metadata\n\n- **Project prefix:** `CUSTOM`\n- **Done count:** 0\n");
@@ -77,8 +77,8 @@ final class TodoBoardVerifierTest extends TestCase
     public function testVerifierFailsWhenIndexStillPointsAtJiraButCardsLiveUnderPreferredDirectory(): void
     {
         $tempDir = sys_get_temp_dir() . '/agent_kanban_test_verifier_' . uniqid();
-        mkdir($tempDir, 0777, true);
-        mkdir($tempDir . '/todo/cards', 0777, true);
+        mkdir($tempDir, 0o777, true);
+        mkdir($tempDir . '/todo/cards', 0o777, true);
 
         file_put_contents($tempDir . '/TODO.md', "This project uses a split-file Kanban board under todo/jira/\n");
         file_put_contents($tempDir . '/todo/board.md', "# Board Metadata\n\n- **Project prefix:** `CUSTOM`\n- **Done count:** 0\n");

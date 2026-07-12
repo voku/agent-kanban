@@ -18,6 +18,7 @@
     "php": "^8.3"
   },
   "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.75",
     "phpstan/phpstan": "^2.1",
     "phpunit/phpunit": "^11.5"
   },
@@ -37,10 +38,13 @@
   "scripts": {
     "test": "phpunit",
     "phpstan": "phpstan analyse --configuration=phpstan.neon.dist",
+    "cs-check": "php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff",
+    "cs-fix": "php-cs-fixer fix --config=.php-cs-fixer.dist.php",
     "ci": [
       "@composer validate --strict",
       "@test",
-      "@phpstan"
+      "@phpstan",
+      "@cs-check"
     ]
   },
   "config": {

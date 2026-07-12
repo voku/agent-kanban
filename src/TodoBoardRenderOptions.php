@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace voku\AgentKanban;
 
-use InvalidArgumentException;
-use RuntimeException;
-
+/**
+ * @deprecated since 0.2.0, kept for the deprecated {@see TodoBoardCli}. Use
+ *             {@see \voku\AgentKanban\Rendering\RenderOptions} instead. See
+ *             UPGRADING.md.
+ */
 final readonly class TodoBoardRenderOptions
 {
     /**
