@@ -49,7 +49,16 @@ jobs:
           name: phpstan-${{ matrix.php }}
           path: phpstan-${{ matrix.php }}.log
       - name: Check coding style
-        run: composer cs-check
+        shell: bash
+        run: |
+          set -o pipefail
+          composer cs-check 2>&1 | tee cs-${{ matrix.php }}.log
+      - name: Upload coding-style diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cs-${{ matrix.php }}
+          path: cs-${{ matrix.php }}.log
 
   clean-install:
     runs-on: ubuntu-latest
