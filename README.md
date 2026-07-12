@@ -1,62 +1,82 @@
-# Coding Agent | Kanban via PHP
+# agent-kanban
 
-A lightweight, strict PHP library designed to parse, render, verify, and synchronize Markdown-based Kanban boards tailored for coding-agent workflows.
+A strict PHP library and CLI for **Git-native, coding-agent Kanban boards**:
+human-readable and human-editable Markdown card files, one file per task,
+deterministic parsing and verification, safe conflict-aware mutations, and
+machine-readable (JSON) output for coding agents and CI.
 
-We provide here a CLI utility and programmatic API to handle split-file Kanban setups.
+Local-first, offline-capable, auditable through Git, and independent of any
+specific LLM or coding-agent provider.
 
----
+## What this is
 
-## Features
+- A typed PHP API (`docs/php-api.md`) plus a standalone CLI
+  (`vendor/bin/agent-kanban`, `docs/cli.md`) for reading, verifying,
+  rendering, and safely mutating a Kanban board made of Markdown card
+  files.
+- A normative card format (`docs/card-format.md`): one Markdown file per
+  card, `- **Field:** value` bullet metadata, deterministic serialization.
+- A configurable board policy (`docs/configuration.md`): lanes, statuses,
+  WIP limits, required fields, transitions — nothing project-specific is
+  hard-coded into the engine.
+- Optional, credential-free comparison against an external tracker like
+  Jira (`docs/external-issues.md`) — bring your own adapter, no network
+  code shipped in this package.
+- A stable foundation to build on: a UI, `voku/agent-loop`'s session
+  orchestration, or your own tooling, all consuming the same typed
+  contracts (`docs/agent-loop-integration.md`).
 
-- **Split-File Board Management**: Aggregates a directory of individual Markdown cards (`todo/cards/ITPNG-*.md`) and a metadata file (`todo/board.md`) into a single consolidated board markdown document. Local boards work fully offline; `todo/jira/ITPNG-*.md` is also still supported.
-- **Strict Verifier (`TodoBoardVerifier`)**: Validates the integrity of the board against a set of robust constraints (WIP limits, status mappings, ticket uniqueness, task briefs, matching counts).
-- **Flexible Rendering (`TodoBoardCli render`)**: Outputs a clean Markdown board representation with query options to filter by lane, assignee, domain, status, search string, and limit.
-- **Jira Synchronization (`TodoBoardCli jira-sync`)**: Syncs local card metadata with remote Jira issue states.
-- **Zero-Dependency Core Helpers**: Uses package-local, byte-safe string utilities to run reliably in generic PHP environments.
+## What this is not
 
----
+- Not an agent execution platform: it does not start, run, or talk to
+  LLMs or coding agents.
+- Not a UI: no browser, desktop app, or drag-and-drop board.
+- Not a database: no SQLite/Postgres/server, no event sourcing, no
+  WebSockets, no terminal streaming.
+- Not Git worktree orchestration or PR automation.
+- Not session memory, recall compilation, learning extraction, or
+  cross-package workflow governance — that's `voku/agent-loop`'s job.
 
-## Directory Structure
+See `docs/architecture.md` for the full design and `docs/PLAN.md` for the
+reasoning behind these boundaries.
 
-```
-vendor/
-├── bin/
-│   └── agent-kanban             # Standalone CLI binary
-├── src/
-│   ├── Composer/                # Composer integration
-│   ├── JiraIssueProvider.php    # Interface for remote Jira integration
-│   ├── TodoBoardCard.php        # Immutable card representation
-│   ├── TodoBoardCli.php         # CLI command router and output formatter
-│   ├── TodoBoardRenderOptions.php # Value object for render filtering
-│   ├── TodoBoardSource.php      # Board assembler & markdown parser
-│   └── TodoBoardVerifier.php    # Integrity checking engine
-├── tests/
-│   ├── fixtures/                # Mock project structures for testing
-│   └── *Test.php                # Package test cases
-├── composer.json                # Composer package config
-├── phpstan.neon.dist            # Static analysis configuration
-└── phpunit.xml                  # PHPUnit test runner settings
-```
+## Installation
 
----
-
-## The Markdown Kanban Architecture
-
-The board operates on a split-file architecture to avoid git conflicts during concurrent agent execution. Cards are plain Markdown files and work offline; Jira sync (below) is optional and requires a host-provided `JiraIssueProvider`.
-
-`todo/cards/` is the preferred local card directory. `todo/jira/` is also supported, so existing boards keep working without migration. If both directories exist, `todo/cards/` takes precedence.
-
-### 1. Board Metadata (`todo/board.md`)
-Maintains board-wide variables:
-```markdown
-# Board Metadata
-
-- **Source:** `todo/cards/*.md`
-- **Done count:** 301
+```bash
+composer require voku/agent-kanban
 ```
 
-### 2. Card Source Files (`todo/cards/ITPNG-*.md`)
-Each ticket has its own Markdown file with frontmatter metadata:
+Requires PHP 8.3+.
+
+## Five-minute setup
+
+```bash
+mkdir -p todo/cards
+cat > todo/cards/ABC-1.md <<'MD'
+# ABC-1: Set up the board
+
+- **Ticket:** ABC-1
+- **Lane:** READY
+- **Status:** Selected
+- **Summary:** First card on the new board.
+- **Priority:** 1
+
+## Agent Task Brief
+Nothing to do yet — this is just the first card.
+MD
+
+vendor/bin/agent-kanban summary
+vendor/bin/agent-kanban verify
+vendor/bin/agent-kanban card claim ABC-1 --by=codex --move-to-doing
+```
+
+That's a complete, working board: no `todo/board.md`, no config file
+required (the project prefix `ABC` is inferred from the card filename).
+Add a `todo/kanban.config.json` once you want to customize lanes, WIP
+limits, or required fields — see `docs/configuration.md`.
+
+## Card file example
+
 ```markdown
 # ITPNG-123: Implement secure form validation
 
@@ -65,98 +85,112 @@ Each ticket has its own Markdown file with frontmatter metadata:
 - **Status:** Selected
 - **Domain:** Security
 - **Assignee:** Lars Moelleken
-- **Updated:** 2026-06-09 11:32:00
-- **Fit:** (Recommended) Task has clear inputs and target files.
+- **Updated:** 2026-06-09T11:32:00+00:00
 - **Summary:** Short summary of the work.
 - **Next:** Write unit tests for the validator.
 - **Validation:** Run make test_unit.
+- **Priority:** 1
 - **Wave:** Wave 1
-- **Next pull rank:** 1
 
 ## Handoff / Context
-Additional context notes go here...
+Additional context notes for whoever picks this up next.
+
+## Agent Task Brief
+#### ITPNG-123: Implement secure form validation
+Details an agent needs before starting.
 ```
 
----
+Full field reference, escaping rules, and invalid-input behavior:
+`docs/card-format.md`.
 
-## CLI Usage
-
-Run the package binary from the project root directory:
+## Main CLI commands
 
 ```bash
-./vendor/bin/agent-kanban <command> [options]
+vendor/bin/agent-kanban summary
+vendor/bin/agent-kanban verify --format=json
+vendor/bin/agent-kanban render --lanes=READY,DOING --search=security
+vendor/bin/agent-kanban card show ITPNG-123
+vendor/bin/agent-kanban card claim ITPNG-123 --by=codex --move-to-doing
+vendor/bin/agent-kanban card move ITPNG-123 --to=VERIFY
+vendor/bin/agent-kanban card release ITPNG-123 --by=codex
 ```
 
-### Supported Commands
+Full command reference, options, and exit codes: `docs/cli.md`.
 
-* **`summary`**
-  Prints an overview of lane sizes, WIP health, and status counters:
-  ```bash
-  ./vendor/bin/agent-kanban summary
-  ```
+## Basic PHP usage
 
-* **`render`**
-  Renders the board representation. Supports optional filters:
-  ```bash
-  ./vendor/bin/agent-kanban render --lanes=READY,DOING --assignee=moellekenl --limit=5
-  ```
-  *Available filters:* `--lanes`, `--domain`, `--assignee`, `--status`, `--search`, `--limit`.
+```php
+use voku\AgentKanban\Board;
+use voku\AgentKanban\Config\BoardConfig;
+use voku\AgentKanban\Repository\MarkdownCardRepository;
+use voku\AgentKanban\Query\BoardQueryService;
+use voku\AgentKanban\Verification\BoardVerifier;
 
-* **`lane <LANE>`**
-  Prints the tickets and details for a specific lane (e.g. `READY`, `DOING`, `VERIFY`, `BLOCKED`, `BACKLOG`):
-  ```bash
-  ./vendor/bin/agent-kanban lane READY
-  ```
+$config = BoardConfig::default('ITPNG');
+$repository = new MarkdownCardRepository($rootPath, $config);
+$board = new Board($config, $repository->loadAll(), $repository->resolveCardDirectory());
 
-* **`next-pull`**
-  Shows recommended cards ready to be pulled by agents.
+$next = (new BoardQueryService($board))->nextPullCandidates();
 
-* **`ticket <TICKET_KEY>`** (or `context <TICKET_KEY>`)
-  Renders the compiled context and brief for a specific ticket:
-  ```bash
-  ./vendor/bin/agent-kanban ticket ITPNG-123
-  ```
+$report = (new BoardVerifier())->verify($board);
+if (!$report->isValid()) {
+    foreach ($report->errors() as $violation) {
+        // $violation->code, ->message, ->severity, ->cardId, ->field, ->file
+    }
+}
+```
 
-* **`brief <TICKET_KEY>`**
-  Extracts and displays only the *Agent Task Brief* section of the card.
+Mutating a card:
 
-* **`jira-sync`**
-  Syncs local Markdown card statuses against the Jira API using the provided issue provider interface.
+```php
+use voku\AgentKanban\Mutation\CardMutationService;
+use voku\AgentKanban\Domain\CardId;
+use voku\AgentKanban\Domain\Lane;
 
----
+$mutation = new CardMutationService($rootPath, $config, $repository);
+$result = $mutation->move(CardId::fromString('ITPNG-123'), Lane::fromString('DOING'), actor: 'codex');
+// $result->newRevision, $result->transition, ...
+```
 
-## Board Verification Rules
+Full API tour: `docs/php-api.md`.
 
-The `TodoBoardVerifier` executes the following checks:
-1. **Entrypoint Integrity**: `TODO.md` in the workspace root must point to the active card directory (`todo/cards/`, or `todo/jira/` if that's what the project uses) and must not contain raw lane tables directly.
-2. **Required Sections**: The compiled board must contain sections like `# TODO for Coding Agents`, `## ITPNG Markdown Board`, `### WIP Health`, etc.
-3. **Count Verification**: Lane headers (e.g. `#### READY (Count: 3)`) must match the actual number of files in that lane.
-4. **Valid Status Mapping**:
-   - `READY` $\rightarrow$ `Selected`, `In Planung`
-   - `DOING` $\rightarrow$ `In Progress`
-   - `VERIFY` $\rightarrow$ `In Test`
-   - `BLOCKED` $\rightarrow$ `Warten`
-   - `BACKLOG` $\rightarrow$ `Backlog`
-5. **No Duplicates**: A ticket key can only exist in a single lane.
-6. **Task Brief Existence**: All cards in the `READY` lane must include an Agent Task Brief.
-7. **WIP Constraints**: Validates that active WIP fits within the limit (maximum `3` active implementation cards).
+## Compatibility
 
----
+- `todo/cards/` (preferred) and `todo/jira/` (legacy) are both read;
+  `todo/cards/` wins in full when both exist. Existing 0.x card files —
+  including the legacy `Fit` field and `Next pull rank` field — keep
+  parsing without any migration.
+- No card file is ever silently rewritten into a new format by reading it.
+- The pre-1.0 `TodoBoardSource`/`TodoBoardVerifier`/`TodoBoardCli` PHP classes
+  and their generated-Markdown-based CLI are **removed**, not deprecated —
+  this project has one known consumer (`voku/agent-loop`) and the maintainer
+  chose a clean break over carrying that implementation forward. See
+  `UPGRADING.md` for the direct replacement for each removed class and CLI
+  command.
+
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md) — data flow and design
+- [`docs/card-format.md`](docs/card-format.md) — the card file specification
+- [`docs/configuration.md`](docs/configuration.md) — `BoardConfig` reference
+- [`docs/cli.md`](docs/cli.md) — full CLI command/option/exit-code reference
+- [`docs/php-api.md`](docs/php-api.md) — PHP API tour
+- [`docs/json-format.md`](docs/json-format.md) — versioned JSON output shapes
+- [`docs/concurrency.md`](docs/concurrency.md) — transitions, claims, atomic writes
+- [`docs/external-issues.md`](docs/external-issues.md) — optional Jira-style sync
+- [`docs/agent-loop-integration.md`](docs/agent-loop-integration.md) — integrating with `voku/agent-loop`
+- [`docs/legacy-operating-prompt.md`](docs/legacy-operating-prompt.md) — the removed pre-1.0 operating-prompt prose, preserved for `agent-recall-compiler`
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) — common errors and fixes
+- [`UPGRADING.md`](UPGRADING.md) — migrating from 0.x
+- [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md)
 
 ## Development
 
-Run development commands within the `vendor/` directory:
-
 ```bash
-# Install package dependencies
 composer install
-
-# Run static analysis (PHPStan)
-composer phpstan
-
-# Run unit tests
-composer test
-
-# Run all CI verification checks
-composer ci
+composer test       # PHPUnit
+composer phpstan    # PHPStan, max level
+composer cs-check    # php-cs-fixer, dry-run
+composer cs-fix      # php-cs-fixer, apply fixes
+composer ci          # everything composer ci runs in CI
 ```

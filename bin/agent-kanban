@@ -3,9 +3,28 @@
 
 declare(strict_types=1);
 
-use voku\AgentKanban\TodoBoardCli;
+// When installed as a dependency, Composer's generated vendor/bin proxy
+// `include`s this file directly and sets $GLOBALS['_composer_autoload_path']
+// to the *consuming* project's vendor/autoload.php — __DIR__ here would
+// otherwise resolve to this package's own bin/ directory (through the
+// symlink/proxy), which has no vendor/ of its own. Fall back to the local
+// vendor/autoload.php when this package is the root project (e.g. running
+// tests inside this repository).
+if (isset($GLOBALS['_composer_autoload_path'])) {
+    $autoloader = $GLOBALS['_composer_autoload_path'];
+    unset($GLOBALS['_composer_autoload_path']);
+} else {
+    $autoloader = __DIR__ . '/../vendor/autoload.php';
+}
 
-require __DIR__ . '/../vendor/autoload.php';
+if (!is_file($autoloader)) {
+    fwrite(STDERR, "Could not locate the Composer autoloader.\n");
+    exit(1);
+}
+
+require $autoloader;
+
+use voku\AgentKanban\Cli\CliApplication;
 
 $rootPath = getcwd();
 if ($rootPath === false) {
@@ -13,4 +32,4 @@ if ($rootPath === false) {
     exit(1);
 }
 
-exit((new TodoBoardCli($rootPath))->run($argv));
+exit((new CliApplication($rootPath))->run($argv));

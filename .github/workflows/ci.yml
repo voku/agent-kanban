@@ -4,18 +4,78 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  tests:
+  ci:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        php: ['8.3', '8.4']
+        php: ['8.3', '8.4', '8.5']
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist
-      - run: composer ci
+      - name: Validate Composer metadata
+        run: composer validate --strict
+      - name: Run PHPUnit
+        shell: bash
+        run: |
+          set -o pipefail
+          composer test 2>&1 | tee phpunit-${{ matrix.php }}.log
+      - name: Upload PHPUnit diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-${{ matrix.php }}
+          path: phpunit-${{ matrix.php }}.log
+      - name: Run PHPStan
+        shell: bash
+        run: |
+          set -o pipefail
+          composer phpstan 2>&1 | tee phpstan-${{ matrix.php }}.log
+      - name: Upload PHPStan diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpstan-${{ matrix.php }}
+          path: phpstan-${{ matrix.php }}.log
+      - name: Check coding style
+        shell: bash
+        run: |
+          set -o pipefail
+          composer cs-check 2>&1 | tee cs-${{ matrix.php }}.log
+      - name: Upload coding-style diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cs-${{ matrix.php }}
+          path: cs-${{ matrix.php }}.log
+
+  clean-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Verify installation from a clean Composer project
+        run: |
+          mkdir /tmp/agent-kanban-consumer
+          cd /tmp/agent-kanban-consumer
+          composer init --no-interaction --name=voku/agent-kanban-consumer-check --type=project
+          composer config repositories.local path "$GITHUB_WORKSPACE"
+          composer require voku/agent-kanban:@dev --no-interaction
+          ./vendor/bin/agent-kanban help
