@@ -98,11 +98,30 @@ jobs:
           coverage: none
           tools: composer:v2
       - name: Install this pull request into agent-loop
+        shell: bash
         working-directory: agent-loop
         run: |
-          composer config repositories.agent-kanban path ../agent-kanban
-          composer require voku/agent-kanban:@dev --no-update
-          composer update voku/agent-kanban --with-dependencies --no-interaction
+          set -o pipefail
+          {
+            composer config repositories.agent-kanban path ../agent-kanban
+            composer require voku/agent-kanban:@dev --no-update
+            composer update voku/agent-kanban --with-dependencies --no-interaction
+          } 2>&1 | tee agent-loop-install.log
+      - name: Upload agent-loop install diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-loop-install
+          path: agent-loop/agent-loop-install.log
       - name: Run agent-loop quality gate
+        shell: bash
         working-directory: agent-loop
-        run: composer ci
+        run: |
+          set -o pipefail
+          composer ci 2>&1 | tee agent-loop-ci.log
+      - name: Upload agent-loop CI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-loop-ci
+          path: agent-loop/agent-loop-ci.log
