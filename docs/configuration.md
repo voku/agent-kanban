@@ -22,6 +22,14 @@ package originally shipped with.
 | `formatVersion` | `int` | `1` | The card format version this board expects; see `docs/card-format.md`. |
 | `externalIssueSystem` | `?string` | `null` | A label for which external tracker this board compares against (see `docs/external-issues.md`); the engine never interprets it. |
 
+`cardDirectory`, `legacyCardDirectory`, and `archiveDirectory` (when set)
+must be non-empty, repository-relative paths: no leading `/` or Windows
+drive letter, no `\`, no NUL byte, and no `.`/`..`/empty path component
+(e.g. `todo//cards` or `todo/../cards`). `BoardConfig`'s constructor throws
+`ConfigurationException` immediately for any of these — a malformed or
+malicious `kanban.config.json` cannot point the repository at a directory
+outside the board root.
+
 ### Default transitions
 
 ```

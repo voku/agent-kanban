@@ -25,27 +25,50 @@ Without `expectedRevision`, a mutation always applies to whatever is
 currently on disk ("last write wins" — same as editing the file by hand
 twice in a row).
 
-## Atomic writes
+## Atomic, lock-serialized writes
 
-`MarkdownCardRepository::atomicWrite()` never edits a file in place:
+`MarkdownCardRepository::atomicWrite()` and `moveFile()` never edit a file
+in place, and never let the expected-revision check race a concurrent
+writer:
 
-1. Write the full new content to a temporary sibling file
-   (`.{name}.{random}.tmp` in the same directory, so it's on the same
-   filesystem/volume as the target).
-2. `fflush()` and close it.
-3. `rename()` the temporary file over the target.
+1. Open (creating if needed) a per-card lock file (`.{name}.lock`, next to
+   the card file) and acquire an exclusive `flock()` on it. This serializes
+   every `atomicWrite()`/`moveFile()` call against the same card file
+   across processes on the same machine.
+2. With the lock held: re-check the path isn't a symlink, check
+   `mustNotExist`/destination-must-not-exist where applicable, then check
+   the caller's `expectedRevision` (if given) against a fresh read of the
+   file. Because this happens *after* the lock is acquired, no other
+   process using this repository's API can change the file between the
+   revision check and the write that follows.
+3. Write the full new content to a temporary sibling file
+   (`.{name}.{random}.tmp`, same directory as the target, so it's on the
+   same filesystem/volume), handling partial `fwrite()` returns by looping
+   until every byte is written, then `fflush()` and close it.
+4. `rename()` the temporary file over the target (or, for `moveFile()`,
+   `rename()` the card file itself to its destination).
+5. Release the lock and remove the lock file.
 
 `rename()` on POSIX filesystems (and NTFS, for a same-volume rename) is
 atomic: a concurrent reader always sees either the fully-old or the
 fully-new content, never a partial write. If any step fails, the original
-file is untouched and the temporary file is the only thing left behind (and
-is cleaned up on a failed rename). The same pattern (`moveFile()`, using a
-plain `rename()`, refusing to overwrite an existing destination) backs
-`card archive` / `card restore`.
+file is untouched and the temporary file is cleaned up. `moveFile()` (used
+by `card archive` / `card restore`) refuses to overwrite an existing
+destination.
 
-`atomicWrite()` and `moveFile()` both refuse to operate through a symlink
-(`is_link()` check), so a card path can't be used to write outside the card
-directory via a symlink swap.
+Lock files do not accumulate: `atomicWrite()`/`moveFile()` remove their lock
+file before releasing it, using a stat-based check (device + inode) to
+avoid the classic `flock()`-then-`unlink()` race where a lock file removed
+and recreated between two processes could let both believe they hold
+exclusivity — a process that finds its lock file's path no longer points at
+the inode it locked simply retries against the current path instead of
+proceeding.
+
+`MarkdownCardRepository` confines every path it touches to the board root
+and checks every path *component* between the root and the target for
+symlinks (not just the final segment), for both reads and writes, so a card
+path can't be used to escape the board directory via a symlink anywhere
+along the way.
 
 ## Transitions
 

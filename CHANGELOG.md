@@ -78,6 +78,25 @@ The on-disk board format is unchanged and fully backward compatible — see
 - A comprehensive test suite (unit, filesystem/concurrency integration, CLI
   subprocess, and compatibility tests) — see `docs/PLAN.md`'s VERIFY section
   for what was actually run and how.
+- Hardened concurrency and path safety in `MarkdownCardRepository`: writes
+  and moves take an exclusive per-card-file lock (`flock()`) and re-check
+  the expected revision *while holding it*, so the file cannot change
+  between that check and the write from another process using the
+  repository API; lock files are removed after use without reintroducing
+  the classic `flock()`-then-`unlink()` race (see `docs/concurrency.md`).
+  Every path the repository touches is confined to the board root and
+  checked component-by-component for symlinks, not just at the final
+  segment. `BoardConfig` rejects an absolute, `..`-containing, or
+  NUL-byte-containing configured directory outright (see
+  `docs/configuration.md`).
+- `Cli\ArgvParser` now rejects unknown options, duplicate options, a
+  missing value on a non-boolean option, a value on a boolean flag, and a
+  non-integer value where an integer is required, instead of silently
+  falling back to a default. `CliApplication` additionally validates
+  options against a per-command allow-list, so e.g. `summary --actor=x` or
+  `verify --title=x` are rejected rather than silently ignored, even though
+  `--actor`/`--title` are valid options for other commands. See
+  `docs/cli.md`.
 
 ### Changed
 

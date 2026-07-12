@@ -89,6 +89,7 @@ final class CardMutationServiceTest extends TestCase
         $root = $this->tempBoard();
         $service = $this->service($root);
         $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T');
+        $before = file_get_contents($root . '/todo/cards/ABC-1.md');
 
         try {
             $service->update(CardId::fromString('ABC-1'), summary: 'x', expectedRevision: CardRevision::fromContent('stale'));
@@ -98,6 +99,8 @@ final class CardMutationServiceTest extends TestCase
             self::assertNotNull($exception->expectedRevision);
             self::assertNotNull($exception->actualRevision);
         }
+
+        self::assertSame($before, file_get_contents($root . '/todo/cards/ABC-1.md'));
     }
 
     public function testOriginalFileIsPreservedWhenValidationFails(): void

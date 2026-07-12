@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentKanban\Tests\Cli;
 
 use PHPUnit\Framework\Attributes\After;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -59,6 +60,43 @@ final class CliApplicationTest extends TestCase
         self::assertNotSame(0, $result['exitCode']);
         self::assertSame('', $result['stdout']);
         self::assertStringContainsString('Unknown command', $result['stderr']);
+    }
+
+    /** @return iterable<string, array{list<string>}> */
+    public static function removedLegacyCommandProvider(): iterable
+    {
+        yield 'ticket' => [['ticket', 'ITPNG-999']];
+        yield 'context' => [['context', 'ITPNG-999']];
+        yield 'brief' => [['brief', 'ITPNG-999']];
+        yield 'jira-sync' => [['jira-sync']];
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    #[DataProvider('removedLegacyCommandProvider')]
+    public function testRemovedLegacyCommandsAreRejectedAsUnknown(array $args): void
+    {
+        $result = $this->runCli($args, $this->fixtureRoot());
+
+        self::assertNotSame(0, $result['exitCode']);
+        self::assertStringContainsString('Unknown command', $result['stderr']);
+    }
+
+    public function testCommandRejectsAnOptionThatBelongsToAnotherCommand(): void
+    {
+        $result = $this->runCli(['summary', '--actor=test'], $this->fixtureRoot());
+
+        self::assertNotSame(0, $result['exitCode']);
+        self::assertStringContainsString('not valid for "summary"', $result['stderr']);
+    }
+
+    public function testVerifyRejectsAnOptionThatBelongsToCardCommands(): void
+    {
+        $result = $this->runCli(['verify', '--title=Something'], $this->fixtureRoot());
+
+        self::assertNotSame(0, $result['exitCode']);
+        self::assertStringContainsString('not valid for "verify"', $result['stderr']);
     }
 
     public function testSummaryTextFormat(): void

@@ -54,6 +54,34 @@ final class CliApplication
 
     public const int EXIT_EXTERNAL_PROVIDER_ERROR = 6;
 
+    /** @var list<string> */
+    private const array GLOBAL_OPTIONS = ['format', 'root', 'config'];
+
+    /** @var array<string, list<string>> */
+    private const array COMMAND_OPTIONS = [
+        'summary'       => [],
+        'render'        => ['lanes', 'lane', 'domain', 'assignee', 'status', 'search', 'limit'],
+        'verify'        => [],
+        'next-pull'     => [],
+        'lane'          => [],
+        'external-sync' => ['provider-class', 'query'],
+    ];
+
+    /** @var array<string, list<string>> */
+    private const array CARD_SUBCOMMAND_OPTIONS = [
+        'show'    => [],
+        'create'  => ['title', 'lane', 'status', 'summary', 'dry-run'],
+        'update'  => [
+            'title', 'status', 'domain', 'assignee', 'summary', 'next', 'validation',
+            'priority', 'wave', 'brief', 'handoff', 'dry-run', 'expected-revision',
+        ],
+        'move'    => ['to', 'actor', 'dry-run', 'expected-revision'],
+        'claim'   => ['by', 'expires', 'move-to-doing', 'dry-run', 'expected-revision'],
+        'release' => ['by', 'dry-run', 'expected-revision'],
+        'archive' => ['dry-run', 'expected-revision'],
+        'restore' => ['dry-run', 'expected-revision'],
+    ];
+
     public function __construct(
         private readonly string $defaultRootPath,
         private readonly BoardContextFactory $contextFactory = new BoardContextFactory(),
@@ -84,6 +112,10 @@ final class CliApplication
                 ArgvParser::stringOption($parsed, 'root'),
                 ArgvParser::stringOption($parsed, 'config'),
             );
+
+            if (array_key_exists($command, self::COMMAND_OPTIONS)) {
+                $this->assertAllowedOptions($parsed, self::COMMAND_OPTIONS[$command], $command);
+            }
 
             return match ($command) {
                 'summary'       => $this->cmdSummary($context, $format),
@@ -247,6 +279,10 @@ final class CliApplication
             fwrite(STDERR, "Usage: agent-kanban card <show|create|update|move|claim|release|archive|restore> <ID> [options]\n");
 
             return self::EXIT_USAGE_ERROR;
+        }
+
+        if (array_key_exists($subcommand, self::CARD_SUBCOMMAND_OPTIONS)) {
+            $this->assertAllowedOptions($parsed, self::CARD_SUBCOMMAND_OPTIONS[$subcommand], 'card ' . $subcommand);
         }
 
         $id = CardId::fromString($cardIdValue);
@@ -542,6 +578,20 @@ final class CliApplication
         }
 
         return self::EXIT_OK;
+    }
+
+    /**
+     * @param ParsedArgs $parsed
+     * @param list<string> $allowed
+     */
+    private function assertAllowedOptions(array $parsed, array $allowed, string $commandLabel): void
+    {
+        $permitted = array_merge(self::GLOBAL_OPTIONS, $allowed);
+        foreach (array_keys($parsed['options']) as $name) {
+            if (!in_array($name, $permitted, true)) {
+                throw new ValidationException(sprintf('Option --%s is not valid for "%s".', $name, $commandLabel));
+            }
+        }
     }
 
     /**

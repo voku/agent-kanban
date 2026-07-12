@@ -186,12 +186,9 @@ final class MarkdownCardRepository
         $this->assertNoSymlinkComponents($absolutePath);
         $this->ensureSafeDirectory(dirname($absolutePath));
 
-        $lock = $this->openLock($absolutePath);
+        $lockPath = $this->lockPathFor($absolutePath);
+        $lock = $this->acquireLock($lockPath);
         try {
-            if (!flock($lock, LOCK_EX)) {
-                throw new IoException(sprintf('Could not lock card file: %s', $absolutePath), path: $absolutePath);
-            }
-
             clearstatcache(true, $absolutePath);
             $this->assertNoSymlinkComponents($absolutePath);
 
@@ -205,8 +202,7 @@ final class MarkdownCardRepository
             $this->assertExpectedRevision($absolutePath, $expectedRevision);
             $this->replaceAtomically($absolutePath, $content);
         } finally {
-            flock($lock, LOCK_UN);
-            fclose($lock);
+            $this->releaseLock($lock, $lockPath);
         }
     }
 
@@ -221,12 +217,9 @@ final class MarkdownCardRepository
         $this->assertNoSymlinkComponents($absoluteTo);
         $this->ensureSafeDirectory(dirname($absoluteTo));
 
-        $lock = $this->openLock($absoluteFrom);
+        $lockPath = $this->lockPathFor($absoluteFrom);
+        $lock = $this->acquireLock($lockPath);
         try {
-            if (!flock($lock, LOCK_EX)) {
-                throw new IoException(sprintf('Could not lock card file: %s', $absoluteFrom), path: $absoluteFrom);
-            }
-
             $this->assertNoSymlinkComponents($absoluteFrom);
             $this->assertNoSymlinkComponents($absoluteTo);
 
@@ -246,8 +239,7 @@ final class MarkdownCardRepository
                 );
             }
         } finally {
-            flock($lock, LOCK_UN);
-            fclose($lock);
+            $this->releaseLock($lock, $lockPath);
         }
     }
 
@@ -341,16 +333,68 @@ final class MarkdownCardRepository
         }
     }
 
-    /** @return resource */
-    private function openLock(string $absolutePath)
+    private function lockPathFor(string $absolutePath): string
     {
-        $lockPath = dirname($absolutePath) . '/.' . basename($absolutePath) . '.lock';
-        $lock = fopen($lockPath, 'c');
-        if ($lock === false) {
-            throw new IoException(sprintf('Could not open lock file: %s', $lockPath), path: $lockPath);
+        return dirname($absolutePath) . '/.' . basename($absolutePath) . '.lock';
+    }
+
+    /**
+     * Acquires an exclusive lock on $lockPath, safe against the classic
+     * flock()-then-unlink() race: a lock file removed by whoever last held
+     * it can be recreated (a new inode) by a third process while a second
+     * process is still blocked waiting on the old, now-orphaned inode's
+     * flock(). That second process would then believe it holds the lock
+     * while a fourth process concurrently holds a lock on the new inode.
+     * We close that gap by re-checking, once flock() returns, that the
+     * path still points at the inode we locked — retrying against the
+     * current path if not.
+     *
+     * @return resource
+     */
+    private function acquireLock(string $lockPath)
+    {
+        while (true) {
+            $lock = fopen($lockPath, 'c');
+            if ($lock === false) {
+                throw new IoException(sprintf('Could not open lock file: %s', $lockPath), path: $lockPath);
+            }
+
+            if (!flock($lock, LOCK_EX)) {
+                fclose($lock);
+
+                throw new IoException(sprintf('Could not lock card file: %s', $lockPath), path: $lockPath);
+            }
+
+            $heldStat = fstat($lock);
+            clearstatcache(true, $lockPath);
+            $pathStat = is_file($lockPath) ? stat($lockPath) : false;
+
+            if ($heldStat !== false
+                && $pathStat !== false
+                && $pathStat['dev'] === $heldStat['dev']
+                && $pathStat['ino'] === $heldStat['ino']
+            ) {
+                return $lock;
+            }
+
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    /** @param resource $lock */
+    private function releaseLock($lock, string $lockPath): void
+    {
+        // Unlink while still holding the exclusive lock, so any process
+        // already blocked on this same inode's flock() will, upon
+        // acquiring it, see the inode/path mismatch in acquireLock() and
+        // retry rather than proceed under a false sense of exclusivity.
+        if (is_file($lockPath)) {
+            unlink($lockPath);
         }
 
-        return $lock;
+        flock($lock, LOCK_UN);
+        fclose($lock);
     }
 
     private function ensureSafeDirectory(string $directory): void

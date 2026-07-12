@@ -40,6 +40,26 @@ class itself contains no board logic.
 assignee, and summary. `--limit` caps how many cards are shown per lane
 (`0` or omitted = no limit).
 
+## Option parsing is strict
+
+`ArgvParser` rejects, rather than silently ignoring or defaulting:
+
+- an option name it doesn't recognize at all (`--bogus=x`);
+- an option supplied more than once (`--limit=1 --limit=2`);
+- a non-boolean option given without a value (`--limit`);
+- a value given to a boolean flag (`--dry-run=true`);
+- a non-integer value where an integer is required (`--limit=banana`,
+  `--priority=banana`).
+
+On top of that, each command only accepts the options that are actually
+meaningful for it — `--root`, `--config`, and `--format` are the only
+options every command accepts; anything else is validated against a
+per-command allow-list (e.g. `summary --actor=someone` and
+`verify --title=Something` are both rejected, not silently ignored, even
+though `--actor` and `--title` are valid options for other commands). Every
+rejection is a `ValidationException` (exit code `1`), never a raw stack
+trace.
+
 ## Global options
 
 | Option | Effect |

@@ -24,10 +24,21 @@ final class AtomicCompareAndSwapTest extends TestCase
             $repository = new MarkdownCardRepository($root, BoardConfig::default('ABC'));
             $revisionReadByFirstWriter = CardRevision::fromContent($original);
 
-            file_put_contents($path, "# ABC-1: Concurrent edit\n\n- **Ticket:** ABC-1\n- **Lane:** BACKLOG\n");
+            $concurrentEdit = "# ABC-1: Concurrent edit\n\n- **Ticket:** ABC-1\n- **Lane:** BACKLOG\n";
+            file_put_contents($path, $concurrentEdit);
 
-            $this->expectException(ConflictException::class);
-            $repository->atomicWrite($path, 'replacement', $revisionReadByFirstWriter);
+            try {
+                $repository->atomicWrite($path, 'replacement', $revisionReadByFirstWriter);
+                self::fail('Expected ConflictException.');
+            } catch (ConflictException) {
+                // expected
+            }
+
+            self::assertSame(
+                $concurrentEdit,
+                file_get_contents($path),
+                'The concurrent writer\'s content must survive; the rejected writer must never touch the file.',
+            );
         } finally {
             foreach (glob($root . '/todo/cards/*') ?: [] as $file) {
                 unlink($file);

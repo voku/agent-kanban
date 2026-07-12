@@ -17,6 +17,15 @@ creation, ...). This document describes the stable, typed contract
 > actually calls into `agent-kanban` today. Anything that does not match
 > should be treated as an `agent-kanban` bug to fix, not something
 > `agent-loop` should work around — see `UPGRADING.md`.
+>
+> **Migration status.** The current `voku/agent-loop` codebase still calls
+> the pre-1.0 `TodoBoardSource`/`TodoBoardVerifier`/`TodoBoardCli` classes
+> and CLI commands, all of which this release removes (see `UPGRADING.md`).
+> `agent-loop` is **expected to be broken against this branch until it is
+> migrated separately**, in its own follow-up work, onto the typed contract
+> described below. This package's CI intentionally does not check out or
+> build `agent-loop` — that migration is out of scope here and belongs to
+> that follow-up, not to a compatibility shim added to this repository.
 
 ## What `agent-loop` should consume
 
