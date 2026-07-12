@@ -232,6 +232,8 @@ final class MarkdownCardRepository
             throw new IoException(sprintf('Could not create temporary file: %s', $temporaryPath), path: $temporaryPath);
         }
 
+        $written = false;
+
         try {
             if (fwrite($handle, $content) === false) {
                 throw new IoException(sprintf('Could not write temporary file: %s', $temporaryPath), path: $temporaryPath);
@@ -240,12 +242,20 @@ final class MarkdownCardRepository
             if (!fflush($handle)) {
                 throw new IoException(sprintf('Could not flush temporary file: %s', $temporaryPath), path: $temporaryPath);
             }
+
+            $written = true;
         } finally {
             fclose($handle);
+
+            if (!$written && is_file($temporaryPath)) {
+                unlink($temporaryPath);
+            }
         }
 
         if (!rename($temporaryPath, $absolutePath)) {
-            @unlink($temporaryPath);
+            if (is_file($temporaryPath)) {
+                unlink($temporaryPath);
+            }
 
             throw new IoException(sprintf('Could not atomically replace card file: %s', $absolutePath), path: $absolutePath);
         }

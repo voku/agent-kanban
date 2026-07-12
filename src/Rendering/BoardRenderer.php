@@ -194,8 +194,7 @@ final class BoardRenderer
         $sections = ['# Filtered Board Render', '', $this->formatFilters($options)];
 
         foreach ($lanes as $lane) {
-            $cards = $query->byLane($lane);
-            $cards = $this->applyFilters($cards, $options);
+            $cards = $this->filterCards($query->byLane($lane), $options);
             $totalInLane = count($query->byLane($lane));
             $visible = $options->limit > 0 ? array_slice($cards, 0, $options->limit) : $cards;
 
@@ -219,11 +218,16 @@ final class BoardRenderer
     }
 
     /**
+     * Applies domain/assignee/status/search filtering (everything in
+     * {@see RenderOptions} except the lane selection and per-lane limit,
+     * which the caller applies itself). Shared by {@see self::renderFiltered()}
+     * and the CLI's JSON render path, so both formats see identical results.
+     *
      * @param list<Card> $cards
      *
      * @return list<Card>
      */
-    private function applyFilters(array $cards, RenderOptions $options): array
+    public function filterCards(array $cards, RenderOptions $options): array
     {
         return array_values(array_filter($cards, function (Card $card) use ($options): bool {
             if ($options->domain !== null && !$this->containsIgnoreCase($card->domain ?? '', $options->domain)) {

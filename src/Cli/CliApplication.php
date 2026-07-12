@@ -139,16 +139,25 @@ final class CliApplication
             limit: ArgvParser::intOption($parsed, 'limit', 0),
         );
 
+        $renderer = new BoardRenderer();
+
         if ($format === OutputFormat::Json) {
             $query = new BoardQueryService($board);
-            $cards = $options->search !== null ? $query->search($options->search) : $board->cards->all();
+            $lanes = $options->lanes === [] ? $board->config->lanes : $options->lanes;
+
+            $cards = [];
+            foreach ($lanes as $lane) {
+                $laneCards = $renderer->filterCards($query->byLane($lane), $options);
+                $cards = array_merge($cards, $options->limit > 0 ? array_slice($laneCards, 0, $options->limit) : $laneCards);
+            }
+
             $json = new JsonBoardRenderer();
             echo $json->encode($json->cardsToEnvelope($cards));
 
             return self::EXIT_OK;
         }
 
-        echo (new BoardRenderer())->renderFiltered($board, $options);
+        echo $renderer->renderFiltered($board, $options);
 
         return self::EXIT_OK;
     }
@@ -447,10 +456,11 @@ final class CliApplication
             throw new ConfigurationException(sprintf('Class "%s" does not exist or is not autoloadable.', $providerClass));
         }
 
-        $provider = new $providerClass();
-        if (!$provider instanceof ExternalIssueProvider) {
+        if (!is_subclass_of($providerClass, ExternalIssueProvider::class)) {
             throw new ConfigurationException(sprintf('Class "%s" does not implement ExternalIssueProvider.', $providerClass));
         }
+
+        $provider = new $providerClass();
 
         $query = ArgvParser::stringOption($parsed, 'query') ?? ArgvParser::stringOption($parsed, 'jql', '') ?? '';
 

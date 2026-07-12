@@ -278,9 +278,9 @@ final readonly class BoardConfig
             }
 
             foreach ($targets as $target) {
-                if (!in_array($target, $this->lanes, true) && $target !== 'DONE') {
+                if (!in_array($target, $this->lanes, true)) {
                     throw new ConfigurationException(
-                        sprintf('Transition target "%s" (from %s) is not a known lane or DONE.', $target, $from),
+                        sprintf('Transition target "%s" (from %s) is not a known lane.', $target, $from),
                     );
                 }
             }

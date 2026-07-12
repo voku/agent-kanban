@@ -91,11 +91,13 @@ final class BoardConfigTest extends TestCase
         new BoardConfig('ABC', lanes: ['READY'], requiredFieldsByLane: [], transitions: ['READY' => ['DOING']]);
     }
 
-    public function testTransitionMayTargetDone(): void
+    public function testRejectsDoneAsATransitionTarget(): void
     {
-        $config = new BoardConfig('ABC', lanes: ['VERIFY'], requiredFieldsByLane: [], transitions: ['VERIFY' => ['DONE']]);
-
-        self::assertSame(['DONE'], $config->transitions['VERIFY']);
+        // "DONE" is not a lane and is never written to a card file; leaving
+        // the active board is the separate archive() mutation, not a lane
+        // transition. See docs/concurrency.md.
+        $this->expectException(ConfigurationException::class);
+        new BoardConfig('ABC', lanes: ['VERIFY'], requiredFieldsByLane: [], transitions: ['VERIFY' => ['DONE']]);
     }
 
     public function testFromJsonFileNotFoundThrows(): void

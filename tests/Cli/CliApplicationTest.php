@@ -80,6 +80,25 @@ final class CliApplicationTest extends TestCase
         self::assertSame('board-summary', $decoded['type']);
     }
 
+    public function testRenderJsonFormatAppliesTheSameFiltersAsTextFormat(): void
+    {
+        $root = $this->emptyBoard();
+        file_put_contents($root . '/todo/cards/ABC-1.md', "# ABC-1: Security card\n\n- **Ticket:** ABC-1\n- **Lane:** READY\n- **Domain:** Security\n");
+        file_put_contents($root . '/todo/cards/ABC-2.md', "# ABC-2: M365 card\n\n- **Ticket:** ABC-2\n- **Lane:** READY\n- **Domain:** M365\n");
+
+        $result = $this->runCli(['render', '--domain=Security', '--format=json'], $root);
+
+        self::assertSame(0, $result['exitCode']);
+        $decoded = json_decode($result['stdout'], true);
+        self::assertIsArray($decoded);
+        self::assertSame(1, $decoded['count']);
+        $cards = $decoded['cards'];
+        self::assertIsArray($cards);
+        $firstCard = $cards[0];
+        self::assertIsArray($firstCard);
+        self::assertSame('ABC-1', $firstCard['id']);
+    }
+
     public function testVerifyPassesOnValidFixture(): void
     {
         $result = $this->runCli(['verify'], $this->fixtureRoot());
@@ -176,19 +195,53 @@ final class CliApplicationTest extends TestCase
         self::assertNotSame(0, $result['exitCode']);
     }
 
+    public function testExternalSyncWithAValidProvider(): void
+    {
+        $result = $this->runCli(
+            ['external-sync', '--provider-class=voku\\AgentKanban\\Tests\\Support\\FakeExternalIssueProvider'],
+            $this->fixtureRoot(),
+        );
+
+        self::assertSame(0, $result['exitCode']);
+    }
+
+    public function testExternalSyncNeverInstantiatesAClassThatDoesNotImplementTheInterface(): void
+    {
+        $marker = sys_get_temp_dir() . '/agent_kanban_side_effect_' . bin2hex(random_bytes(6));
+        self::assertFileDoesNotExist($marker);
+
+        try {
+            $result = $this->runCli(
+                ['external-sync', '--provider-class=voku\\AgentKanban\\Tests\\Support\\NotAnExternalIssueProviderWithSideEffect'],
+                $this->fixtureRoot(),
+                ['AGENT_KANBAN_TEST_SIDE_EFFECT_MARKER' => $marker],
+            );
+
+            self::assertSame(5, $result['exitCode']);
+            self::assertStringContainsString('does not implement ExternalIssueProvider', $result['stderr']);
+            self::assertFileDoesNotExist($marker, 'the class must not be constructed before the interface check');
+        } finally {
+            if (is_file($marker)) {
+                unlink($marker);
+            }
+        }
+    }
+
     /**
      * @param list<string> $args
+     * @param array<string, string> $extraEnv
      *
      * @return array{stdout: string, stderr: string, exitCode: int}
      */
-    private function runCli(array $args, string $cwd): array
+    private function runCli(array $args, string $cwd, array $extraEnv = []): array
     {
         $bin = dirname(__DIR__, 2) . '/bin/agent-kanban';
         $command = array_merge(['php', $bin], $args);
         $escaped = implode(' ', array_map('escapeshellarg', $command));
 
+        $env = $extraEnv === [] ? null : array_merge(getenv(), $extraEnv);
         $descriptors = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        $process = proc_open($escaped, $descriptors, $pipes, $cwd);
+        $process = proc_open($escaped, $descriptors, $pipes, $cwd, $env);
         self::assertNotFalse($process);
 
         $stdout = stream_get_contents($pipes[1]) ?: '';
