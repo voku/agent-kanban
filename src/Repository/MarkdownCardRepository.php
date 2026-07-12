@@ -30,11 +30,16 @@ final class MarkdownCardRepository
     ) {
         $this->parser = $parser ?? new CardParser();
         $this->serializer = $serializer ?? new CardSerializer();
-        $realRoot = realpath($rootPath);
-        if ($realRoot === false || !is_dir($realRoot)) {
-            throw new IoException(sprintf('Board root does not exist or is not a directory: %s', $rootPath), path: $rootPath);
+
+        $root = realpath($rootPath);
+        if ($root === false || !is_dir($root)) {
+            throw new IoException(
+                sprintf('Board root does not exist or is not a directory: %s', $rootPath),
+                path: $rootPath,
+            );
         }
-        $this->normalizedRootPath = rtrim(str_replace('\\', '/', $realRoot), '/');
+
+        $this->normalizedRootPath = rtrim(str_replace('\\', '/', $root), '/');
     }
 
     public function resolveCardDirectory(): ?string
@@ -42,6 +47,7 @@ final class MarkdownCardRepository
         if (is_dir($this->absolutePath($this->config->cardDirectory))) {
             return $this->config->cardDirectory;
         }
+
         if (is_dir($this->absolutePath($this->config->legacyCardDirectory))) {
             return $this->config->legacyCardDirectory;
         }
@@ -66,6 +72,7 @@ final class MarkdownCardRepository
         if ($files === false) {
             throw new IoException('Could not list card files.', path: $this->absolutePath($directory));
         }
+
         sort($files);
 
         return $files;
@@ -97,20 +104,22 @@ final class MarkdownCardRepository
                     $exception->cardId,
                     $exception->field,
                 );
+
                 continue;
             }
 
-            $key = $card->id->toString();
-            if (isset($seenIds[$key])) {
+            $id = $card->id->toString();
+            if (isset($seenIds[$id])) {
                 $failures[] = new CardLoadFailure(
                     $this->relativePath($file),
-                    sprintf('Duplicate card ID "%s" (already defined in %s).', $key, $seenIds[$key]),
-                    $key,
+                    sprintf('Duplicate card ID "%s" (already defined in %s).', $id, $seenIds[$id]),
+                    $id,
                 );
+
                 continue;
             }
 
-            $seenIds[$key] = $this->relativePath($file);
+            $seenIds[$id] = $this->relativePath($file);
             $cards[] = $card;
         }
 
@@ -153,6 +162,7 @@ final class MarkdownCardRepository
     {
         $this->assertPathInsideRoot($absolutePath);
         $this->assertNoSymlinkComponents($absolutePath);
+
         $content = file_get_contents($absolutePath);
         if ($content === false) {
             throw new IoException(sprintf('Could not read card file: %s', $absolutePath), path: $absolutePath);
@@ -173,8 +183,8 @@ final class MarkdownCardRepository
         bool $mustNotExist = false,
     ): void {
         $this->assertPathInsideRoot($absolutePath);
-        $directory = dirname($absolutePath);
-        $this->ensureSafeDirectory($directory);
+        $this->assertNoSymlinkComponents($absolutePath);
+        $this->ensureSafeDirectory(dirname($absolutePath));
 
         $lock = $this->openLock($absolutePath);
         try {
@@ -183,54 +193,17 @@ final class MarkdownCardRepository
             }
 
             clearstatcache(true, $absolutePath);
+            $this->assertNoSymlinkComponents($absolutePath);
+
             if ($mustNotExist && file_exists($absolutePath)) {
-                throw new ConflictException(sprintf('Card file already exists: %s', $this->relativePath($absolutePath)));
+                throw new ConflictException(
+                    sprintf('Card file already exists: %s', $this->relativePath($absolutePath)),
+                    cardId: $this->cardIdFromPath($absolutePath),
+                );
             }
 
-            if ($expectedRevision !== null) {
-                if (!is_file($absolutePath)) {
-                    throw new ConflictException(
-                        sprintf('Card file disappeared before write: %s', $this->relativePath($absolutePath)),
-                        expectedRevision: $expectedRevision->toString(),
-                    );
-                }
-                $current = $this->readRaw($absolutePath);
-                $actual = CardRevision::fromContent(str_replace(["\r\n", "\r"], "\n", $current));
-                if (!$expectedRevision->equals($actual)) {
-                    throw new ConflictException(
-                        sprintf('Card changed before write: %s', $this->relativePath($absolutePath)),
-                        expectedRevision: $expectedRevision->toString(),
-                        actualRevision: $actual->toString(),
-                    );
-                }
-            }
-
-            $temporaryPath = $directory . '/.' . basename($absolutePath) . '.' . bin2hex(random_bytes(6)) . '.tmp';
-            $handle = fopen($temporaryPath, 'x');
-            if ($handle === false) {
-                throw new IoException(sprintf('Could not create temporary file: %s', $temporaryPath), path: $temporaryPath);
-            }
-
-            $completed = false;
-            try {
-                $this->writeAll($handle, $content, $temporaryPath);
-                if (!fflush($handle)) {
-                    throw new IoException(sprintf('Could not flush temporary file: %s', $temporaryPath), path: $temporaryPath);
-                }
-                $completed = true;
-            } finally {
-                fclose($handle);
-                if (!$completed && is_file($temporaryPath)) {
-                    unlink($temporaryPath);
-                }
-            }
-
-            if (!rename($temporaryPath, $absolutePath)) {
-                if (is_file($temporaryPath)) {
-                    unlink($temporaryPath);
-                }
-                throw new IoException(sprintf('Could not atomically replace card file: %s', $absolutePath), path: $absolutePath);
-            }
+            $this->assertExpectedRevision($absolutePath, $expectedRevision);
+            $this->replaceAtomically($absolutePath, $content);
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
@@ -244,6 +217,8 @@ final class MarkdownCardRepository
     ): void {
         $this->assertPathInsideRoot($absoluteFrom);
         $this->assertPathInsideRoot($absoluteTo);
+        $this->assertNoSymlinkComponents($absoluteFrom);
+        $this->assertNoSymlinkComponents($absoluteTo);
         $this->ensureSafeDirectory(dirname($absoluteTo));
 
         $lock = $this->openLock($absoluteFrom);
@@ -251,23 +226,24 @@ final class MarkdownCardRepository
             if (!flock($lock, LOCK_EX)) {
                 throw new IoException(sprintf('Could not lock card file: %s', $absoluteFrom), path: $absoluteFrom);
             }
+
             $this->assertNoSymlinkComponents($absoluteFrom);
             $this->assertNoSymlinkComponents($absoluteTo);
+
             if (file_exists($absoluteTo)) {
-                throw new ConflictException(sprintf('Destination already exists: %s', $this->relativePath($absoluteTo)));
+                throw new ConflictException(
+                    sprintf('Destination already exists: %s', $this->relativePath($absoluteTo)),
+                    cardId: $this->cardIdFromPath($absoluteFrom),
+                );
             }
-            if ($expectedRevision !== null) {
-                $actual = CardRevision::fromContent(str_replace(["\r\n", "\r"], "\n", $this->readRaw($absoluteFrom)));
-                if (!$expectedRevision->equals($actual)) {
-                    throw new ConflictException(
-                        sprintf('Card changed before move: %s', $this->relativePath($absoluteFrom)),
-                        expectedRevision: $expectedRevision->toString(),
-                        actualRevision: $actual->toString(),
-                    );
-                }
-            }
+
+            $this->assertExpectedRevision($absoluteFrom, $expectedRevision);
+
             if (!rename($absoluteFrom, $absoluteTo)) {
-                throw new IoException(sprintf('Could not move %s to %s', $absoluteFrom, $absoluteTo), path: $absoluteFrom);
+                throw new IoException(
+                    sprintf('Could not move %s to %s', $absoluteFrom, $absoluteTo),
+                    path: $absoluteFrom,
+                );
             }
         } finally {
             flock($lock, LOCK_UN);
@@ -279,8 +255,70 @@ final class MarkdownCardRepository
     {
         $this->assertPathInsideRoot($absolutePath);
         $this->assertNoSymlinkComponents($absolutePath);
+
         if (is_file($absolutePath) && !unlink($absolutePath)) {
             throw new IoException(sprintf('Could not delete card file: %s', $absolutePath), path: $absolutePath);
+        }
+    }
+
+    private function assertExpectedRevision(string $path, ?CardRevision $expected): void
+    {
+        if ($expected === null) {
+            return;
+        }
+
+        if (!is_file($path)) {
+            throw new ConflictException(
+                sprintf('Card file disappeared before mutation: %s', $this->relativePath($path)),
+                cardId: $this->cardIdFromPath($path),
+                expectedRevision: $expected->toString(),
+            );
+        }
+
+        $current = str_replace(["\r\n", "\r"], "\n", $this->readRaw($path));
+        $actual = CardRevision::fromContent($current);
+        if (!$expected->equals($actual)) {
+            throw new ConflictException(
+                sprintf('Card changed before mutation: %s', $this->relativePath($path)),
+                cardId: $this->cardIdFromPath($path),
+                expectedRevision: $expected->toString(),
+                actualRevision: $actual->toString(),
+            );
+        }
+    }
+
+    private function replaceAtomically(string $target, string $content): void
+    {
+        $temporaryPath = dirname($target)
+            . '/.' . basename($target)
+            . '.' . bin2hex(random_bytes(6))
+            . '.tmp';
+
+        $handle = fopen($temporaryPath, 'x');
+        if ($handle === false) {
+            throw new IoException(sprintf('Could not create temporary file: %s', $temporaryPath), path: $temporaryPath);
+        }
+
+        $complete = false;
+        try {
+            $this->writeAll($handle, $content, $temporaryPath);
+            if (!fflush($handle)) {
+                throw new IoException(sprintf('Could not flush temporary file: %s', $temporaryPath), path: $temporaryPath);
+            }
+            $complete = true;
+        } finally {
+            fclose($handle);
+            if (!$complete && is_file($temporaryPath)) {
+                unlink($temporaryPath);
+            }
+        }
+
+        if (!rename($temporaryPath, $target)) {
+            if (is_file($temporaryPath)) {
+                unlink($temporaryPath);
+            }
+
+            throw new IoException(sprintf('Could not atomically replace card file: %s', $target), path: $target);
         }
     }
 
@@ -289,11 +327,16 @@ final class MarkdownCardRepository
     {
         $offset = 0;
         $length = strlen($content);
+
         while ($offset < $length) {
             $written = fwrite($handle, substr($content, $offset));
             if ($written === false || $written === 0) {
-                throw new IoException(sprintf('Could not completely write temporary file: %s', $path), path: $path);
+                throw new IoException(
+                    sprintf('Could not completely write temporary file: %s', $path),
+                    path: $path,
+                );
             }
+
             $offset += $written;
         }
     }
@@ -315,14 +358,18 @@ final class MarkdownCardRepository
         $this->assertPathInsideRoot($directory);
         $relative = ltrim(substr(str_replace('\\', '/', $directory), strlen($this->normalizedRootPath)), '/');
         $current = $this->normalizedRootPath;
+
         foreach (array_filter(explode('/', $relative), static fn (string $part): bool => $part !== '') as $part) {
             $current .= '/' . $part;
+
             if (is_link($current)) {
                 throw new IoException(sprintf('Refusing to use symlinked directory: %s', $current), path: $current);
             }
+
             if (!file_exists($current) && !mkdir($current, 0o777) && !is_dir($current)) {
                 throw new IoException(sprintf('Could not create card directory: %s', $current), path: $current);
             }
+
             if (!is_dir($current)) {
                 throw new IoException(sprintf('Path component is not a directory: %s', $current), path: $current);
             }
@@ -334,14 +381,17 @@ final class MarkdownCardRepository
         $this->assertPathInsideRoot($absolutePath);
         $relative = ltrim(substr(str_replace('\\', '/', $absolutePath), strlen($this->normalizedRootPath)), '/');
         $current = $this->normalizedRootPath;
+
         foreach (explode('/', $relative) as $part) {
             if ($part === '') {
                 continue;
             }
+
             $current .= '/' . $part;
             if (is_link($current)) {
                 throw new IoException(sprintf('Refusing to follow symlinked path: %s', $current), path: $current);
             }
+
             if (!file_exists($current)) {
                 break;
             }
@@ -351,7 +401,8 @@ final class MarkdownCardRepository
     private function assertPathInsideRoot(string $absolutePath): void
     {
         $normalized = str_replace('\\', '/', $absolutePath);
-        if ($normalized !== $this->normalizedRootPath && !str_starts_with($normalized, $this->normalizedRootPath . '/')) {
+        if ($normalized !== $this->normalizedRootPath
+            && !str_starts_with($normalized, $this->normalizedRootPath . '/')) {
             throw new IoException(sprintf('Path escapes the board root: %s', $absolutePath), path: $absolutePath);
         }
     }
@@ -359,6 +410,15 @@ final class MarkdownCardRepository
     private function absolutePath(string $relativePath): string
     {
         return $this->normalizedRootPath . '/' . $relativePath;
+    }
+
+    private function cardIdFromPath(string $path): ?string
+    {
+        $basename = basename($path, '.md');
+
+        return preg_match('/^[A-Za-z][A-Za-z0-9]*-[0-9]+$/', $basename) === 1
+            ? strtoupper($basename)
+            : null;
     }
 
     private function fallbackIdFromFilename(string $file): ?string
@@ -370,7 +430,11 @@ final class MarkdownCardRepository
 
     private function parseFile(string $file): Card
     {
-        return $this->parser->parse($this->readRaw($file), $this->relativePath($file), $this->fallbackIdFromFilename($file));
+        return $this->parser->parse(
+            $this->readRaw($file),
+            $this->relativePath($file),
+            $this->fallbackIdFromFilename($file),
+        );
     }
 
     private function relativePath(string $absolutePath): string
