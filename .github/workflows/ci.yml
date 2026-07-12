@@ -38,7 +38,16 @@ jobs:
           name: phpunit-${{ matrix.php }}
           path: phpunit-${{ matrix.php }}.log
       - name: Run PHPStan
-        run: composer phpstan
+        shell: bash
+        run: |
+          set -o pipefail
+          composer phpstan 2>&1 | tee phpstan-${{ matrix.php }}.log
+      - name: Upload PHPStan diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpstan-${{ matrix.php }}
+          path: phpstan-${{ matrix.php }}.log
       - name: Check coding style
         run: composer cs-check
 
