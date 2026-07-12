@@ -85,16 +85,21 @@ Key decisions:
   migration for existing 0.x boards with no functional gain, violating "no format
   migration unless explicit, reviewable, opt-in" (see UPGRADING.md if this
   changes later).
-- **Deprecated facades over deletion.** `TodoBoardCard`, `TodoBoardRenderOptions`,
-  `JiraIssueProvider`, `TodoBoardSource`, `TodoBoardVerifier`, `TodoBoardCli` are
-  kept, `@deprecated`, delegating to the new engine. Their *outward* contracts
-  (method signatures, "still reads `todo/cards` then `todo/jira`", "still returns
-  a Markdown document containing lane/ticket data") are preserved. Their *inward*
-  behavior changes where the old behavior was itself the anti-pattern being
-  removed (e.g. `TodoBoardVerifier` no longer re-parses a generated document with
-  hard-coded German Jira statuses — it runs the new typed `BoardVerifier` and
-  keeps the same pass/fail message contract). This is a documented breaking
-  change in behavior, not in the presence of the class. See `UPGRADING.md`.
+- **Deprecated facades over deletion — superseded, see below.** The original
+  plan (first pass of this rework) kept `TodoBoardCard`,
+  `TodoBoardRenderOptions`, `JiraIssueProvider`, `TodoBoardSource`,
+  `TodoBoardVerifier`, `TodoBoardCli` as `@deprecated` facades delegating to
+  the new engine, preserving their outward method contracts while their
+  inward behavior changed to run the new typed engine. That shipped, passed
+  the original 0.1.0 test suite unmodified, and was reviewed. **The
+  maintainer then explicitly decided to remove these classes outright**
+  instead: this package has one known consumer (`voku/agent-loop`), so the
+  cost of carrying the old generated-Markdown architecture forward as
+  "working but deprecated" code (and its compatibility tests) wasn't worth
+  it — a clean break plus a thorough `UPGRADING.md` migration guide was
+  judged better. The classes, their tests, and the CLI aliases
+  (`ticket`/`context`/`brief`/`jira-sync`) they enabled are deleted. See
+  `UPGRADING.md` for the direct replacement for each.
 - **No plugin registry for external issue providers.** Only one real
   implementation shape exists (Jira, as a documented example). A registry/adapter
   framework is deferred until a second provider is real (explicit non-goal per
@@ -153,6 +158,6 @@ RC/compatibility-freeze cycle, per brief section 21.
 | Keep bullet-metadata Markdown card format | Accepted | No functional need to migrate; avoids a disruptive format change for existing 0.x boards. |
 | Switch to YAML frontmatter | Rejected (for 1.0) | Fashionable, not necessary; violates "explicit, reviewable, opt-in" migration rule. |
 | Lanes/Status as native PHP enums | Rejected | Would hard-code configuration the brief requires to stay host-configurable. |
-| Keep `TodoBoard*` classes, deprecated | Accepted | Existing public classes should remain available "when practical"; these are thin facades over the new engine. |
+| Keep `TodoBoard*` classes, deprecated | Reversed (superseded) | Shipped once as deprecated facades; the maintainer then decided this package's one known consumer (`voku/agent-loop`) didn't justify carrying the old generated-Markdown architecture forward, and chose a clean break plus `UPGRADING.md` migration guide instead. See DESIGN section above. |
 | Generic adapter/plugin registry for external issue providers | Rejected (for now) | Only one real implementation (Jira) exists; brief explicitly defers this until a second real provider exists. |
 | SQLite/Postgres/event sourcing/server | Rejected | Explicit non-goal; filesystem + Git is the whole point. |

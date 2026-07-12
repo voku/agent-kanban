@@ -2,69 +2,90 @@
 
 ## From 0.1.x
 
-Nothing is required to keep existing boards working. `todo/cards/` and
+**This is a breaking release.** `agent-kanban` has one known consumer
+(`voku/agent-loop`), so rather than carry the old generated-Markdown
+architecture forward as deprecated facades, the pre-1.0 PHP classes and CLI
+commands built on it were removed outright in favor of the typed engine.
+Everything below is a direct, mechanical replacement — there is no gradual
+deprecation window for these classes.
+
+What is **not** breaking: the on-disk board format. `todo/cards/` and
 `todo/jira/` are both still read exactly as before, existing card files
 (bullet-metadata Markdown, including the 0.x-only `Fit` field and legacy
-`Next pull rank` field) parse unchanged, and `TodoBoardSource` /
-`TodoBoardVerifier` / `TodoBoardCli` still exist with their original method
-signatures. No card file is ever rewritten as a side effect of reading it.
+`Next pull rank` field, and the legacy `dd.mm.YYYY[ HH:MM:SS]` timestamp
+format) parse unchanged, and no card file is ever rewritten as a side effect
+of reading it. If you only ever interacted with boards through card files on
+disk, you have nothing to change.
 
-That said, several things did change under the hood, and the CLI binary now
-runs a different implementation. Read on for what to check.
+### Removed PHP classes and their replacements
 
-### The CLI binary changed implementation
+| Removed (0.1.x) | Replacement |
+| --- | --- |
+| `voku\AgentKanban\TodoBoardSource` | `voku\AgentKanban\Repository\MarkdownCardRepository` (reading cards) + `voku\AgentKanban\Rendering\BoardRenderer` (rendering). See `docs/php-api.md`. |
+| `voku\AgentKanban\TodoBoardVerifier` | `voku\AgentKanban\Verification\BoardVerifier`, given a `Board` built from `MarkdownCardRepository`. Returns a structured `VerificationReport`, not a `run(): int` that prints to STDOUT/STDERR. |
+| `voku\AgentKanban\TodoBoardCli` | `voku\AgentKanban\Cli\CliApplication` (what `vendor/bin/agent-kanban` now runs). |
+| `voku\AgentKanban\TodoBoardCard` | `voku\AgentKanban\Domain\Card` (far more fields; see `docs/card-format.md`). |
+| `voku\AgentKanban\TodoBoardRenderOptions` | `voku\AgentKanban\Rendering\RenderOptions` (same shape: lanes/domain/assignee/status/search/limit). |
+| `voku\AgentKanban\JiraIssueProvider` | `voku\AgentKanban\ExternalIssue\ExternalIssueProvider` (generic, not Jira-specific — see `docs/external-issues.md`). |
 
-`vendor/bin/agent-kanban` now runs `voku\AgentKanban\Cli\CliApplication`
-instead of the deprecated `TodoBoardCli`. If you only ever ran the binary
-(not the PHP class directly), check the table below for command-name and
-output changes.
+#### Reading a board
 
-| 0.x | 1.0 | Notes |
+```php
+// 0.1.x
+$source = new TodoBoardSource($rootPath, $projectPrefix);
+$markdown = $source->readBoardMarkdown();
+
+// 1.0
+$config = BoardConfig::default($projectPrefix);
+$repository = new MarkdownCardRepository($rootPath, $config);
+$board = new Board($config, $repository->loadAll(), $repository->resolveCardDirectory());
+$markdown = (new BoardRenderer())->renderFull($board); // only if you actually need Markdown text
+```
+
+Prefer working with `$board` directly (`BoardQueryService`, `BoardVerifier`)
+over rendering to Markdown and re-parsing it — that reparsing step is
+exactly the pattern 1.0 removes. See `docs/architecture.md`.
+
+#### Verifying a board
+
+```php
+// 0.1.x
+$verifier = new TodoBoardVerifier($rootPath, $projectPrefix);
+$exitCode = $verifier->run(); // printed to STDOUT/STDERR itself
+
+// 1.0
+$report = (new BoardVerifier())->verify($board);
+if (!$report->isValid()) {
+    foreach ($report->errors() as $violation) {
+        // $violation->code, ->message, ->severity, ->cardId, ->field, ->file
+    }
+}
+```
+
+The old verifier also enforced several hard-coded, project-specific rules
+that no longer exist anywhere in the engine: exact German Jira status names
+per lane, a fixed WIP limit of `3`, and a requirement that a large
+generated Markdown document contain specific section headings (an artifact
+of the old "reparse the generated board" architecture). If your project
+relied on those *specific* rules, reproduce them as your own `BoardConfig`
+(`docs/configuration.md`) — e.g. `statusToLane` for the status vocabulary,
+`wipLimits` for the WIP cap.
+
+#### Using the CLI
+
+`vendor/bin/agent-kanban` now runs `CliApplication`, not `TodoBoardCli`.
+Command mapping:
+
+| 0.x command | 1.0 equivalent | Notes |
 | --- | --- | --- |
-| `summary` | `summary` | Same command; output format is generic now (no project-specific policy prose). |
-| `render [filters]` | `render [filters]` | Filter flags are the same (`--lanes`, `--domain`, `--assignee`, `--status`, `--search`, `--limit`); output is a generic Markdown render, not the old giant board document. |
-| `lane <LANE>` | `lane <LANE>` | Same; now also validates the lane is one of the board's configured lanes and errors clearly if not. |
+| `summary` | `summary` | Output is generic now — no project-specific policy prose. |
+| `render [filters]` | `render [filters]` | Same filter flags (`--lanes`, `--domain`, `--assignee`, `--status`, `--search`, `--limit`); output is a generic Markdown render, not the old board document. |
+| `lane <LANE>` | `lane <LANE>` | Now also validates the lane is one of the board's configured lanes. |
 | `next-pull` | `next-pull` | Same semantics: priority `> 0`, ascending. |
-| `ticket <ID>` / `context <ID>` | `card show <ID>` | Old names still work as aliases. |
-| `brief <ID>` | `brief <ID>` (alias) or `card show <ID>` | Old name still works. |
-| `jira-sync [--jql=...]` | `external-sync --provider-class=<FQCN> [--query=...]` | `jira-sync` still works as an alias and accepts `--jql` as a synonym for `--query`, **but** you must now pass `--provider-class` pointing at your own `ExternalIssueProvider` implementation — the CLI no longer accepts a `JiraIssueProvider` constructor argument directly. See `docs/external-issues.md`. |
+| `ticket <ID>` / `context <ID>` | `card show <ID>` | Removed; use `card show`. |
+| `brief <ID>` | `card show <ID>` (includes the task brief) | Removed as a standalone command. |
+| `jira-sync [--jql=...]` | `external-sync --provider-class=<FQCN> [--query=...]` | Removed; `external-sync` requires `--provider-class` pointing at your own `ExternalIssueProvider` implementation (see `docs/external-issues.md`) instead of a `JiraIssueProvider` constructor argument. `--query` replaces `--jql`. |
 | *(none)* | `verify`, `card create/update/move/claim/release/archive/restore` | New. See `docs/cli.md`. |
-
-If you were constructing `TodoBoardCli` yourself in PHP (not via the
-binary) and passing a `JiraIssueProvider`, that constructor argument still
-works — `TodoBoardCli` is deprecated but functional, and adapts your
-provider internally.
-
-### `TodoBoardVerifier` checks changed from hard-coded to configurable
-
-The old `TodoBoardVerifier` checked a fixed set of rules baked into the
-engine: exact German Jira status names per lane, a WIP limit of `3`,
-required Markdown section headings matching one specific rendered template.
-The deprecated `TodoBoardVerifier` facade now runs the generic
-`BoardVerifier` instead, which:
-
-- Has **no** hard-coded status vocabulary (configure
-  `BoardConfig::$statusToLane` if you want lane/status restrictions — see
-  `docs/configuration.md`).
-- Has **no** hard-coded WIP limit (configure `BoardConfig::$wipLimits`).
-- No longer requires the old rendered-document's specific section headings
-  to exist anywhere (`### WIP Health`, `### Board Snapshot`, etc.) — those
-  were an artifact of the old "reparse the generated board" architecture,
-  which no longer exists.
-- Still checks: duplicate card IDs, invalid filenames/prefixes, unsupported
-  lanes, missing task briefs for `READY` (the one default it keeps, since it
-  matches the original workflow), malformed card metadata, and the
-  entrypoint-consistency check (`TODO.md` referencing the active card
-  directory) that the original `testVerifierFailsWhenIndexStillPointsAtJiraButCardsLiveUnderPreferredDirectory`
-  test covers.
-- Reports its pass/fail via the same `run(): int` contract
-  (`"TODO board verification passed."` / `"TODO board verification
-  failed: <first error message>"`, exit `0`/`1`) as before.
-
-If your project relied on the *specific* old hard-coded rules (exact status
-strings, WIP limit of 3, exact section headings), reproduce them as your own
-`BoardConfig` (see `docs/configuration.md`) and call `BoardVerifier`
-directly, rather than the deprecated facade.
 
 ### New card fields are optional, additive
 
@@ -92,10 +113,6 @@ normal, deterministic output format, not a silent bulk migration. Running
 - If you use Jira sync, write a small `ExternalIssueProvider` adapter (see
   `docs/external-issues.md`) and switch your automation to
   `external-sync --provider-class=...`.
-- If you called any of the deprecated `TodoBoard*` classes directly from
-  PHP, consider migrating to the typed API (`docs/php-api.md`) — the
-  deprecated classes will eventually be removed in a future major version,
-  with advance notice in `CHANGELOG.md`.
 
 ## Format migrations
 

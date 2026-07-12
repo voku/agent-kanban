@@ -66,10 +66,13 @@ automatically.
 - If you change the card format (`docs/card-format.md`) or the JSON shapes
   (`docs/json-format.md`), update the doc in the same PR — these are meant
   to be normative, not aspirational.
-- Existing 0.x compatibility tests (`tests/TodoBoard*Test.php`) must keep
-  passing unmodified; they pin the deprecated facades' outward behavior. If
-  a change requires touching them, it's very likely a breaking change that
-  needs a `CHANGELOG.md` / `UPGRADING.md` entry, not a quiet test edit.
+- Existing 0.x card *fixtures* (`tests/fixtures/`) must keep parsing
+  unmodified through `MarkdownCardRepository`/`CardParser` — the on-disk
+  format is still backward compatible even though the pre-1.0
+  `TodoBoard*` classes are not (see `UPGRADING.md`). If a change requires
+  editing those fixtures or breaks how they parse, it's very likely a
+  breaking change that needs a `CHANGELOG.md` / `UPGRADING.md` entry, not a
+  quiet fixture edit.
 
 ## Breaking changes
 

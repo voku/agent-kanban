@@ -160,11 +160,13 @@ Full API tour: `docs/php-api.md`.
   `todo/cards/` wins in full when both exist. Existing 0.x card files —
   including the legacy `Fit` field and `Next pull rank` field — keep
   parsing without any migration.
-- `TodoBoardSource`, `TodoBoardVerifier`, and `TodoBoardCli` still exist
-  (deprecated, delegating internally to the typed engine) so existing
-  integrations keep working. See `UPGRADING.md` for what changed under the
-  hood and how the CLI's command surface evolved.
 - No card file is ever silently rewritten into a new format by reading it.
+- The pre-1.0 `TodoBoardSource`/`TodoBoardVerifier`/`TodoBoardCli` PHP classes
+  and their generated-Markdown-based CLI are **removed**, not deprecated —
+  this project has one known consumer (`voku/agent-loop`) and the maintainer
+  chose a clean break over carrying that implementation forward. See
+  `UPGRADING.md` for the direct replacement for each removed class and CLI
+  command.
 
 ## Documentation
 

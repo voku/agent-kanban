@@ -40,9 +40,11 @@ This is the "Markdown as internal database" anti-pattern: two representations
 of the same facts (the array and the rendered text) that can drift apart, and
 a verifier that is really checking "did my own renderer's template not
 change" rather than "is this board healthy." The 1.0 architecture removes it
-entirely — see `TodoBoardSource`, `TodoBoardVerifier`, `TodoBoardCli` in
-`src/` for the deprecated facades that now delegate to the typed engine
-instead (kept for backward compatibility; see `UPGRADING.md`).
+entirely. `TodoBoardSource`, `TodoBoardVerifier`, and `TodoBoardCli` — the
+classes that implemented this pattern — are deleted rather than kept as
+compatibility facades (this package has one known consumer, and a clean
+break was preferred over carrying the old architecture forward); see
+`UPGRADING.md` for the direct typed-engine replacement for each.
 
 ## Layers
 
@@ -86,8 +88,6 @@ instead (kept for backward compatibility; see `UPGRADING.md`).
   (`AgentKanbanException` base; `ValidationException`, `ConflictException`,
   `IoException`, `ConfigurationException`, `ExternalProviderException`,
   `NotFoundException`) so callers can catch broadly or narrowly.
-- **`Legacy\`** — internal support for the deprecated `TodoBoard*` facades.
-  Not part of the public API.
 
 ## Design choices worth knowing
 

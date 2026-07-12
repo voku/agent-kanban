@@ -86,17 +86,14 @@ final class CliApplication
             );
 
             return match ($command) {
-                'summary'             => $this->cmdSummary($context, $format),
-                'render'              => $this->cmdRender($context, $parsed, $format),
-                'verify'              => $this->cmdVerify($context, $format),
-                'next-pull'           => $this->cmdNextPull($context, $format),
-                'lane'                => $this->cmdLane($context, $positional[1] ?? '', $format),
-                'card'                => $this->cmdCard($context, $positional, $parsed, $format),
-                'external-sync', 'jira-sync' => $this->cmdExternalSync($context, $parsed, $format),
-                // Deprecated 0.x command aliases; see UPGRADING.md.
-                'ticket', 'context'   => $this->cardShow($context, CardId::fromString($positional[1] ?? ''), $format),
-                'brief'               => $this->cmdBrief($context, $positional[1] ?? '', $format),
-                default               => $this->cmdUnknown($command),
+                'summary'       => $this->cmdSummary($context, $format),
+                'render'        => $this->cmdRender($context, $parsed, $format),
+                'verify'        => $this->cmdVerify($context, $format),
+                'next-pull'     => $this->cmdNextPull($context, $format),
+                'lane'          => $this->cmdLane($context, $positional[1] ?? '', $format),
+                'card'          => $this->cmdCard($context, $positional, $parsed, $format),
+                'external-sync' => $this->cmdExternalSync($context, $parsed, $format),
+                default         => $this->cmdUnknown($command),
             };
         } catch (AgentKanbanException $exception) {
             return $this->reportError($exception, $format ?? OutputFormat::Text);
@@ -270,38 +267,6 @@ final class CliApplication
         };
     }
 
-    private function cmdBrief(BoardContext $context, string $cardIdValue, OutputFormat $format): int
-    {
-        if ($cardIdValue === '') {
-            fwrite(STDERR, "Usage: agent-kanban brief <ID>\n");
-
-            return self::EXIT_USAGE_ERROR;
-        }
-
-        $card = $context->repository->load(CardId::fromString($cardIdValue));
-        if ($card->taskBrief === '') {
-            fwrite(STDERR, sprintf("No Agent Task Brief found for %s.\n", $card->id));
-
-            return self::EXIT_NOT_FOUND;
-        }
-
-        if ($format === OutputFormat::Json) {
-            echo (new JsonBoardRenderer())->encode([
-                'schemaVersion' => JsonBoardRenderer::SCHEMA_VERSION,
-                'type'          => 'card-brief',
-                'generatedAt'   => (new DateTimeImmutable())->format('Y-m-d\TH:i:sP'),
-                'cardId'        => $card->id->toString(),
-                'taskBrief'     => $card->taskBrief,
-            ]);
-
-            return self::EXIT_OK;
-        }
-
-        echo $card->taskBrief . "\n";
-
-        return self::EXIT_OK;
-    }
-
     private function cardShow(BoardContext $context, CardId $id, OutputFormat $format): int
     {
         $card = $context->repository->load($id);
@@ -462,7 +427,7 @@ final class CliApplication
 
         $provider = new $providerClass();
 
-        $query = ArgvParser::stringOption($parsed, 'query') ?? ArgvParser::stringOption($parsed, 'jql', '') ?? '';
+        $query = ArgvParser::stringOption($parsed, 'query', '') ?? '';
 
         try {
             $issues = $provider->fetchActiveIssues($query);

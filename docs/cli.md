@@ -29,14 +29,6 @@ class itself contains no board logic.
 | `card restore <ID>` | Move a card back out of the archive. |
 | `external-sync --provider-class=<FQCN> [--query=...]` | Compare local cards against an `ExternalIssueProvider` (see `docs/external-issues.md`). |
 
-### Deprecated 0.x aliases
-
-`ticket <ID>` / `context <ID>` (alias for `card show`), `brief <ID>`
-(print just the task brief), and `jira-sync` (alias for `external-sync`,
-also accepts `--jql` as a synonym for `--query`) are still accepted so
-existing scripts built against the 0.x CLI keep working. New scripts should
-use the commands in the table above.
-
 ## Render filters
 
 ```

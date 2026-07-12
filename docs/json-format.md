@@ -30,7 +30,6 @@ credentials of any kind.
 | `card-list` | `agent-kanban render/lane/next-pull --format=json`, `JsonBoardRenderer::cardsToEnvelope()` |
 | `verification-report` | `agent-kanban verify --format=json`, `JsonBoardRenderer::verificationReportToArray()` |
 | `mutation-result` | `agent-kanban card create/update/move/claim/release/archive/restore --format=json` |
-| `card-brief` | `agent-kanban brief --format=json` |
 | `external-issue-drift` | `agent-kanban external-sync --format=json` |
 | `error` | Any command that throws `ValidationException` / `NotFoundException` / `ConfigurationException` / `ExternalProviderException` with `--format=json` |
 | `conflict-error` | Any command that throws `ConflictException` with `--format=json` |

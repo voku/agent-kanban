@@ -4,11 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased — typed engine, safe mutations, JSON output, CLI rewrite
 
-This is a large, mostly-backward-compatible architectural rework building
-toward a stable 1.0 API. See `docs/PLAN.md` for the full rationale and
-`UPGRADING.md` for migration instructions. **Not tagged or released** — this
-is in-progress work on the way to a 1.0.0 the maintainer will cut separately,
-after real-world validation.
+This is a large architectural rework building toward a stable 1.0 API,
+**including breaking changes**: the pre-1.0 `TodoBoardSource`/
+`TodoBoardVerifier`/`TodoBoardCli` classes and the CLI commands built on them
+are removed outright rather than kept as deprecated facades, since this
+project has one known consumer (`voku/agent-loop`) and a clean break was
+judged better than carrying the old generated-Markdown architecture forward.
+See `docs/PLAN.md` for the full rationale and `UPGRADING.md` for a
+class-by-class and command-by-command migration guide. **Not tagged or
+released** — this is in-progress work on the way to a 1.0.0 the maintainer
+will cut separately, after real-world validation.
+
+The on-disk board format is unchanged and fully backward compatible — see
+"Compatibility" below.
 
 ### Added
 
@@ -73,33 +81,38 @@ after real-world validation.
 
 ### Changed
 
-- `TodoBoardSource`, `TodoBoardVerifier`, and `TodoBoardCli` are deprecated
-  (`@deprecated` docblocks) and now delegate internally to the new engine
-  instead of generating and re-parsing a large project-specific Markdown
-  document. Their *outward* method contracts (`readBoardMarkdown()`,
-  `resolveCardDirectory()`, `run()` pass/fail message + exit code, etc.) are
-  unchanged and covered by the original 0.1.0 test suite, which still passes
-  unmodified against these classes. Their *internal* validation rules are
-  now generic and configurable instead of hard-coded (see below).
-- `bin/agent-kanban` now runs `Cli\CliApplication` instead of the deprecated
-  `TodoBoardCli`. See `UPGRADING.md` for the command mapping; several 0.x
-  command names (`ticket`, `context`, `brief`, `jira-sync`) are still
-  accepted as aliases.
-- `TodoBoardVerifier` no longer hard-codes German Jira status names
-  (`Selected`, `In Planung`, `Warten`, `Fertig`), a WIP limit of `3`, or
-  required Markdown section headings from the old rendered-board template.
-  It now runs the generic `BoardVerifier` against the typed board model.
+- `bin/agent-kanban` now runs `Cli\CliApplication` instead of the removed
+  `TodoBoardCli`. See `UPGRADING.md` for the full command mapping.
 
-### Removed
+### Removed (breaking)
 
+- **`TodoBoardSource`, `TodoBoardVerifier`, `TodoBoardCli`, `TodoBoardCard`,
+  `TodoBoardRenderOptions`, and `JiraIssueProvider` are deleted**, not
+  deprecated. Each has a direct typed-engine replacement documented in
+  `UPGRADING.md` with a before/after code example. These classes generated
+  and then re-parsed a large project-specific Markdown document — exactly
+  the architecture pattern this release removes — and hard-coded German
+  Jira status names, a fixed WIP limit of `3`, and required section
+  headings from that one rendered template. None of that exists anywhere in
+  the new engine; equivalent behavior is available as host `BoardConfig`
+  (`docs/configuration.md`) or host documentation, never as an engine
+  invariant.
+- **CLI commands `ticket`, `context`, `brief`, and `jira-sync`** (and
+  `jira-sync`'s `--jql` option) are removed rather than kept as aliases. Use
+  `card show`, `card show` (includes the task brief), and
+  `external-sync --provider-class=... --query=...` respectively — see
+  `UPGRADING.md`.
 - The generated-Markdown-as-internal-database pattern: nothing in this
   package parses its own rendered output anymore.
-- Hard-coded project-specific policy (the literal `ITPNG` prefix as a
-  silent fallback, German Jira status vocabulary, a fixed WIP limit,
-  `MEMORY.md` / `make memory_review` / Docker-validation references baked
-  into rendered board text) is gone from the engine. Equivalent behavior is
-  available as host configuration (`docs/configuration.md`) or host
-  documentation, never as an engine invariant.
+
+### Compatibility (unchanged)
+
+- The on-disk card format is fully backward compatible: `todo/cards/`
+  (preferred) and `todo/jira/` (legacy) are both still read, existing 0.x
+  card files (including the legacy `Fit` field, `Next pull rank` field, and
+  `dd.mm.YYYY` timestamp format) parse unchanged, and no card file is ever
+  silently rewritten by reading it. Only the PHP classes and CLI commands
+  built *around* that format changed.
 
 ## 0.1.0 - 2026-06-22
 
