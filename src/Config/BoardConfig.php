@@ -89,7 +89,9 @@ final readonly class BoardConfig
         $this->requiredFieldsByLane = $requiredFieldsByLane
             ?? (in_array('READY', $this->lanes, true) ? ['READY' => ['taskBrief']] : []);
         $this->transitions = $transitions
-            ?? (array_diff(self::DEFAULT_LANES, $this->lanes) === [] ? self::DEFAULT_TRANSITIONS : []);
+            ?? (array_diff(self::DEFAULT_LANES, $this->lanes) === [] && array_diff($this->lanes, self::DEFAULT_LANES) === []
+                ? self::DEFAULT_TRANSITIONS
+                : []);
 
         $this->assertValidPrefix($projectPrefix);
         $this->assertValidLanes($lanes);

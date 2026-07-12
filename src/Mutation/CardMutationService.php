@@ -224,11 +224,13 @@ final class CardMutationService
         $claim = new Claim($actor, $now, $expiresAt, $currentRevision);
         $warnings = [];
         $lane = $current->lane;
+        $changedFields = ['claim'];
 
         if ($moveToDoing) {
             $doing = Lane::fromString('DOING');
             if ($this->transitionPolicy->canTransition($current->lane, $doing)) {
                 $lane = $doing;
+                $changedFields[] = 'lane';
             } else {
                 $warnings[] = sprintf('Card %s could not move to DOING on claim: no configured transition from %s.', $id, $current->lane);
             }
@@ -236,7 +238,7 @@ final class CardMutationService
 
         $updated = $current->with(lane: $lane, claim: $claim, updatedAt: $now);
 
-        return $this->writeUpdatedCard('claim', $current, $updated, $currentRevision, $dryRun, $warnings, ['claim'], $now);
+        return $this->writeUpdatedCard('claim', $current, $updated, $currentRevision, $dryRun, $warnings, $changedFields, $now);
     }
 
     public function release(
@@ -278,13 +280,15 @@ final class CardMutationService
         $this->assertRevision($id, $currentRevision, $expectedRevision);
 
         $now = new DateTimeImmutable();
+        $destination = $this->rootPath . '/' . $this->config->archiveDirectory . '/' . $id->toString() . '.md';
         if (!$dryRun) {
             $source = $this->repository->findExistingPath($id) ?? throw new NotFoundException(sprintf('Card not found: %s', $id), cardId: $id->toString());
-            $destination = $this->rootPath . '/' . $this->config->archiveDirectory . '/' . $id->toString() . '.md';
             $this->repository->moveFile($source, $destination);
         }
 
-        return new MutationResult('archive', $current, $currentRevision, $currentRevision, $dryRun, [], ['*'], $now);
+        $archivedCard = $this->withRevisionAndSource($current, $currentRevision, $destination);
+
+        return new MutationResult('archive', $archivedCard, $currentRevision, $currentRevision, $dryRun, [], ['*'], $now);
     }
 
     public function restore(
@@ -307,15 +311,18 @@ final class CardMutationService
         $this->assertRevision($id, $currentRevision, $expectedRevision);
 
         $now = new DateTimeImmutable();
+        $newPath = $this->repository->pathForNewCard($id);
         if (!$dryRun) {
             if ($this->repository->exists($id)) {
                 throw new ConflictException(sprintf('Card %s already exists in the active card directory.', $id), cardId: $id->toString());
             }
 
-            $this->repository->moveFile($archivedPath, $this->repository->pathForNewCard($id));
+            $this->repository->moveFile($archivedPath, $newPath);
         }
 
-        return new MutationResult('restore', $current, $currentRevision, $currentRevision, $dryRun, [], ['*'], $now);
+        $restoredCard = $this->withRevisionAndSource($current, $currentRevision, $newPath);
+
+        return new MutationResult('restore', $restoredCard, $currentRevision, $currentRevision, $dryRun, [], ['*'], $now);
     }
 
     /**

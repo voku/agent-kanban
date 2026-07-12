@@ -22,10 +22,18 @@ final class ExternalIssueComparator
 {
     /**
      * @param list<ExternalIssueRecord> $remoteIssues
+     * @param string|null $system The syncing provider's {@see \voku\AgentKanban\ExternalIssue\ExternalIssueProvider::systemName()},
+     *                            if known. When given, cards carrying an explicit
+     *                            `- **External issue:** <system>:<key>` reference to a
+     *                            *different* system are excluded from comparison, so a
+     *                            board that mixes trackers never reports another
+     *                            tracker's card as missing/no-longer-active against this
+     *                            one. Cards with no explicit reference (matched by card
+     *                            ID) still participate regardless, per the class docblock.
      */
-    public function compare(CardCollection $cards, array $remoteIssues, BoardConfig $config): ExternalIssueDrift
+    public function compare(CardCollection $cards, array $remoteIssues, BoardConfig $config, ?string $system = null): ExternalIssueDrift
     {
-        $localByKey = $this->indexCardsByExternalKey($cards);
+        $localByKey = $this->indexCardsByExternalKey($cards, $system);
         $remoteByKey = [];
         foreach ($remoteIssues as $issue) {
             $remoteByKey[$issue->key] = $issue;
@@ -97,11 +105,20 @@ final class ExternalIssueComparator
     /**
      * @return array<string, Card>
      */
-    private function indexCardsByExternalKey(CardCollection $cards): array
+    private function indexCardsByExternalKey(CardCollection $cards, ?string $system): array
     {
         $byKey = [];
         foreach ($cards->all() as $card) {
-            $key = $card->externalIssue->key ?? $card->id->toString();
+            if ($card->externalIssue !== null) {
+                if ($system !== null && $card->externalIssue->system !== $system) {
+                    continue;
+                }
+
+                $key = $card->externalIssue->key;
+            } else {
+                $key = $card->id->toString();
+            }
+
             $byKey[$key] = $card;
         }
 

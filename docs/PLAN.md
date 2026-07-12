@@ -61,7 +61,7 @@ Findings from inspecting the `0.1.0` tree (branch `main` at commit `81bc27c`):
 
 Target data flow (see `docs/architecture.md` for the full diagram and rationale):
 
-```
+```text
 Markdown card files -> MarkdownCardRepository -> immutable Card objects -> immutable Board
     -> query services / verification / Markdown rendering / JSON rendering / mutations
 ```

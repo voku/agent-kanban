@@ -65,7 +65,7 @@ final readonly class Card
 
     public function withClaim(?Claim $claim): self
     {
-        return $this->with(claim: $claim);
+        return $this->with(claim: $claim, clearClaim: $claim === null);
     }
 
     /**

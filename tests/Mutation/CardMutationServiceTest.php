@@ -194,6 +194,18 @@ final class CardMutationServiceTest extends TestCase
         $result = $service->claim(CardId::fromString('ABC-1'), 'codex', moveToDoing: true);
 
         self::assertSame('DOING', $result->card->lane->toString());
+        self::assertSame(['claim', 'lane'], $result->changedFields);
+    }
+
+    public function testClaimWithoutMoveToDoingOnlyReportsClaimAsChanged(): void
+    {
+        $root = $this->tempBoard();
+        $service = $this->service($root);
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+
+        $result = $service->claim(CardId::fromString('ABC-1'), 'codex');
+
+        self::assertSame(['claim'], $result->changedFields);
     }
 
     public function testArchiveRequiresConfiguredDirectory(): void
@@ -223,6 +235,33 @@ final class CardMutationServiceTest extends TestCase
 
         self::assertFileExists($root . '/todo/cards/ABC-1.md');
         self::assertFileDoesNotExist($root . '/todo/archive/ABC-1.md');
+    }
+
+    public function testArchivedCardReportsTheArchiveDirectoryAsItsSourceFile(): void
+    {
+        $root = $this->tempBoard();
+        $config = new BoardConfig('ABC', archiveDirectory: 'todo/archive');
+        $repository = new MarkdownCardRepository($root, $config);
+        $service = new CardMutationService($root, $config, $repository);
+
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T');
+        $result = $service->archive(CardId::fromString('ABC-1'));
+
+        self::assertSame('todo/archive/ABC-1.md', $result->card->sourceFile);
+    }
+
+    public function testRestoredCardReportsTheActiveDirectoryAsItsSourceFile(): void
+    {
+        $root = $this->tempBoard();
+        $config = new BoardConfig('ABC', archiveDirectory: 'todo/archive');
+        $repository = new MarkdownCardRepository($root, $config);
+        $service = new CardMutationService($root, $config, $repository);
+
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T');
+        $service->archive(CardId::fromString('ABC-1'));
+        $result = $service->restore(CardId::fromString('ABC-1'));
+
+        self::assertSame('todo/cards/ABC-1.md', $result->card->sourceFile);
     }
 
     public function testRestoreConflictsWhenActiveCardAlreadyExists(): void

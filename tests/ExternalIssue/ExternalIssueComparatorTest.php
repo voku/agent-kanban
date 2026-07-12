@@ -107,6 +107,36 @@ final class ExternalIssueComparatorTest extends TestCase
         self::assertSame('DOING', $entries[0]->remoteValue);
     }
 
+    public function testCardsPointingAtADifferentSystemAreExcludedWhenSystemIsGiven(): void
+    {
+        $ref = new ExternalIssueRef('github', 'ABC-1');
+        $cards = CardCollection::fromArray([CardFactory::make('ABC-1', status: 'Selected', externalIssue: $ref)]);
+        $remote = [new ExternalIssueRecord('ABC-1', 'Summary', 'Selected', null)];
+
+        $drift = (new ExternalIssueComparator())->compare($cards, $remote, BoardConfig::default('ABC'), system: 'jira');
+
+        // The card explicitly points at "github", not "jira": it must not be
+        // treated as a match for the "jira" remote record (no StatusDrift/
+        // SummaryDrift/etc.), and — since it is excluded from this sync
+        // entirely — must not be reported as "no longer active" either. The
+        // remote "jira" record with no local counterpart is legitimately
+        // MissingLocally.
+        self::assertCount(1, $drift->ofKind(DriftKind::MissingLocally));
+        self::assertCount(0, $drift->ofKind(DriftKind::StatusDrift));
+        self::assertCount(0, $drift->ofKind(DriftKind::NoLongerActiveRemotely));
+    }
+
+    public function testCardsPointingAtTheSyncedSystemStillParticipateWhenSystemIsGiven(): void
+    {
+        $ref = new ExternalIssueRef('jira', 'PROJ-9');
+        $cards = CardCollection::fromArray([CardFactory::make('ABC-1', status: 'Selected', externalIssue: $ref)]);
+        $remote = [new ExternalIssueRecord('PROJ-9', 'Summary', 'In Progress', null)];
+
+        $drift = (new ExternalIssueComparator())->compare($cards, $remote, BoardConfig::default('ABC'), system: 'jira');
+
+        self::assertCount(1, $drift->ofKind(DriftKind::StatusDrift));
+    }
+
     public function testAmbiguousStatusToLaneMappingProducesNoLaneDriftSuggestion(): void
     {
         $config = new BoardConfig('ABC', requiredFieldsByLane: [], statusToLane: [

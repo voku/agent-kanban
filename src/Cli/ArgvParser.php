@@ -76,4 +76,17 @@ final class ArgvParser
 
         return (int) $value;
     }
+
+    /**
+     * @param ParsedArgs $parsed
+     */
+    public static function intOptionOrNull(array $parsed, string $name): ?int
+    {
+        $value = self::stringOption($parsed, $name);
+        if ($value === null || preg_match('/^-?\d+$/', $value) !== 1) {
+            return null;
+        }
+
+        return (int) $value;
+    }
 }

@@ -1,6 +1,6 @@
 # CLI reference
 
-```
+```bash
 vendor/bin/agent-kanban <command> [options]
 ```
 
@@ -31,7 +31,7 @@ class itself contains no board logic.
 
 ## Render filters
 
-```
+```text
 --lanes=A,B   --domain=<substr>   --assignee=<substr>
 --status=<substr>   --search=<substr>   --limit=<N>
 ```

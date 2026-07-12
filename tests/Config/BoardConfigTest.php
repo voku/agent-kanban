@@ -100,6 +100,21 @@ final class BoardConfigTest extends TestCase
         new BoardConfig('ABC', lanes: ['VERIFY'], requiredFieldsByLane: [], transitions: ['VERIFY' => ['DONE']]);
     }
 
+    public function testDefaultTransitionsDoNotApplyWhenLanesAddAnExtraEntry(): void
+    {
+        // Default transitions are documented to apply "only if `$lanes` is
+        // exactly the default lane set" — an extra lane (even alongside all
+        // five defaults) must not silently inherit DEFAULT_TRANSITIONS,
+        // since the extra lane itself would then have no entry at all.
+        $config = new BoardConfig(
+            'ABC',
+            lanes: ['BACKLOG', 'READY', 'DOING', 'VERIFY', 'BLOCKED', 'REVIEW'],
+            requiredFieldsByLane: [],
+        );
+
+        self::assertSame([], $config->transitions);
+    }
+
     public function testFromJsonFileNotFoundThrows(): void
     {
         $this->expectException(ConfigurationException::class);

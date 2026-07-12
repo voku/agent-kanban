@@ -52,15 +52,26 @@ final class BulletMetadata
     {
         $normalized = str_replace(["\r\n", "\r"], "\n", $content);
         $lines = explode("\n", $normalized);
-        $end = count($lines);
+        $end = self::findSectionBoundary($lines);
+
+        return self::parseLines(array_slice($lines, 0, $end), $sourceFile);
+    }
+
+    /**
+     * The index of the first `## ` section-heading line, or `count($lines)`
+     * if there is none. Shared so {@see CardParser::findMetadataEnd()} and
+     * {@see self::parseUpToFirstSection()} apply identical boundary detection.
+     *
+     * @param list<string> $lines
+     */
+    public static function findSectionBoundary(array $lines): int
+    {
         foreach ($lines as $index => $line) {
             if (str_starts_with($line, '## ')) {
-                $end = $index;
-
-                break;
+                return $index;
             }
         }
 
-        return self::parseLines(array_slice($lines, 0, $end), $sourceFile);
+        return count($lines);
     }
 }

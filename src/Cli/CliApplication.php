@@ -322,7 +322,7 @@ final class CliApplication
             summary: ArgvParser::stringOption($parsed, 'summary'),
             nextAction: ArgvParser::stringOption($parsed, 'next'),
             validation: ArgvParser::stringOption($parsed, 'validation'),
-            priority: $this->intOptionOrNull($parsed, 'priority'),
+            priority: ArgvParser::intOptionOrNull($parsed, 'priority'),
             wave: ArgvParser::stringOption($parsed, 'wave'),
             taskBrief: ArgvParser::stringOption($parsed, 'brief'),
             handoffNotes: ArgvParser::stringOption($parsed, 'handoff'),
@@ -436,7 +436,7 @@ final class CliApplication
         }
 
         $board = $this->loadBoard($context);
-        $drift = (new ExternalIssueComparator())->compare($board->cards, $issues, $context->config);
+        $drift = (new ExternalIssueComparator())->compare($board->cards, $issues, $context->config, $provider->systemName());
 
         if ($format === OutputFormat::Json) {
             $entries = array_map(static fn ($entry): array => $entry->toArray(), $drift->entries);
@@ -542,19 +542,6 @@ final class CliApplication
         }
 
         return self::EXIT_OK;
-    }
-
-    /**
-     * @param ParsedArgs $parsed
-     */
-    private function intOptionOrNull(array $parsed, string $name): ?int
-    {
-        $value = ArgvParser::stringOption($parsed, $name);
-        if ($value === null || preg_match('/^-?\d+$/', $value) !== 1) {
-            return null;
-        }
-
-        return (int) $value;
     }
 
     /**

@@ -29,11 +29,15 @@ interface ExternalIssueProvider
 normalized to this package's shape; the provider does the translation from
 whatever the tracker's API actually returns.
 
-`ExternalIssueComparator::compare(CardCollection $cards, list<ExternalIssueRecord> $remoteIssues, BoardConfig $config): ExternalIssueDrift`
+`ExternalIssueComparator::compare(CardCollection $cards, list<ExternalIssueRecord> $remoteIssues, BoardConfig $config, ?string $system = null): ExternalIssueDrift`
 matches a card to a remote record either by an explicit
 `- **External issue:** <system>:<key>` field, or — the common case for
 boards where the local ticket ID *is* the tracker key — by `Card::$id`
-directly. It never needs to know which tracker it's comparing against.
+directly. Pass the syncing provider's `systemName()` as `$system` (the CLI's
+`external-sync` command always does) so a board that mixes trackers never
+compares a card explicitly pointed at a *different* tracker against this
+one's remote records; cards with no explicit reference still match by ID
+regardless of `$system`.
 
 ## Drift categories
 

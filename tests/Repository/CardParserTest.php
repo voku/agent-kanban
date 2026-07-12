@@ -124,6 +124,29 @@ final class CardParserTest extends TestCase
         self::assertSame($expectedIso, $card->updatedAt->format('c'));
     }
 
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function rolloverTimestampProvider(): iterable
+    {
+        yield 'out-of-range day, ISO date' => ['2026-02-30'];
+        yield 'out-of-range day and month, legacy german date' => ['32.13.2026'];
+    }
+
+    #[DataProvider('rolloverTimestampProvider')]
+    public function testRejectsOutOfRangeDatesThatWouldSilentlyRollOver(string $raw): void
+    {
+        // createFromFormat() happily normalizes "2026-02-30" into "2026-03-02"
+        // instead of failing; that would let a malformed legacy timestamp be
+        // misread as a valid, different date. It must be treated the same as
+        // any other unparseable timestamp: preserved raw, not fatal.
+        $content = "# ABC-1: X\n\n- **Ticket:** ABC-1\n- **Lane:** READY\n- **Updated:** {$raw}\n";
+        $card = $this->parser->parse($content, 'ABC-1.md');
+
+        self::assertNull($card->updatedAt);
+        self::assertSame($raw, $card->updatedAtRaw);
+    }
+
     public function testLegacyInlineBriefFallback(): void
     {
         $content = "# ABC-1: Title\n\n- **Ticket:** ABC-1\n- **Lane:** READY\n\n#### ABC-1: Title\nInline brief body.\n";

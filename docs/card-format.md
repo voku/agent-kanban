@@ -90,15 +90,15 @@ first-class property in the 1.0 model.
 - `## Handoff / Context` — free-form Markdown body -> `handoffNotes`.
 - `## Agent Task Brief` — free-form Markdown body -> `taskBrief`. If this
   heading is absent but the body contains a `#### <ID>: ...` heading (the 0.x
-  inline-brief convention), that heading and everything until the next `## `
+  inline-brief convention), that heading and everything until the next `##`
   section is read as the brief for backward compatibility.
-- Any other `## ` section is preserved verbatim as a trailing block
+- Any other `##` section is preserved verbatim as a trailing block
   (`Card::$extraSectionsRaw`) and re-emitted unchanged after the recognized
   sections. Nothing below the title is ever silently dropped.
 
 ### Claim encoding
 
-```
+```text
 - **Claim:** <actor>|claimed=<ISO-8601>|expires=<ISO-8601 or "-">|rev=<64-hex-char SHA-256>
 ```
 
@@ -108,7 +108,7 @@ independent of the file's current revision.
 
 ### External issue encoding
 
-```
+```text
 - **External issue:** <system>:<key>
 ```
 

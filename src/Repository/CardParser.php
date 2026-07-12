@@ -133,13 +133,7 @@ final class CardParser
      */
     private function findMetadataEnd(array $lines): int
     {
-        foreach ($lines as $index => $line) {
-            if (str_starts_with($line, '## ')) {
-                return $index;
-            }
-        }
-
-        return count($lines);
+        return BulletMetadata::findSectionBoundary($lines);
     }
 
     /**
@@ -209,7 +203,9 @@ final class CardParser
 
         foreach (self::TIMESTAMP_FORMATS as $format) {
             $parsed = DateTimeImmutable::createFromFormat('!' . $format, $trimmed);
-            if ($parsed !== false) {
+            $errors = DateTimeImmutable::getLastErrors();
+            $hasErrors = $errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+            if ($parsed !== false && !$hasErrors) {
                 return [$parsed, $trimmed];
             }
         }

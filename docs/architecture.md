@@ -2,7 +2,7 @@
 
 ## Data flow
 
-```
+```text
 Markdown card files
     |
     v
