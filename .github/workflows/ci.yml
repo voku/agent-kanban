@@ -24,7 +24,14 @@ jobs:
           coverage: none
           tools: composer:v2
       - run: composer install --no-interaction --prefer-dist
-      - run: composer ci
+      - name: Validate Composer metadata
+        run: composer validate --strict
+      - name: Run PHPUnit
+        run: composer test
+      - name: Run PHPStan
+        run: composer phpstan
+      - name: Check coding style
+        run: composer cs-check
 
   clean-install:
     runs-on: ubuntu-latest
