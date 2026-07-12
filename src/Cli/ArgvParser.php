@@ -24,6 +24,7 @@ final class ArgvParser
 
     /**
      * @param list<string> $tokens
+     *
      * @return ParsedArgs
      */
     public static function parse(array $tokens): array
