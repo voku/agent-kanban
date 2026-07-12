@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased — typed engine, safe mutations, JSON output, CLI rewrite
+## 0.2.0 — 2026-07-12
+
+... typed engine, safe mutations, JSON output, CLI rewrite
 
 This is a large architectural rework building toward a stable 1.0 API,
 **including breaking changes**: the pre-1.0 `TodoBoardSource`/
@@ -11,9 +13,7 @@ are removed outright rather than kept as deprecated facades, since this
 project has one known consumer (`voku/agent-loop`) and a clean break was
 judged better than carrying the old generated-Markdown architecture forward.
 See `docs/PLAN.md` for the full rationale and `UPGRADING.md` for a
-class-by-class and command-by-command migration guide. **Not tagged or
-released** — this is in-progress work on the way to a 1.0.0 the maintainer
-will cut separately, after real-world validation.
+class-by-class and command-by-command migration guide.
 
 The on-disk board format is unchanged and fully backward compatible — see
 "Compatibility" below.
