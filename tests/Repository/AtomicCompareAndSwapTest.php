@@ -27,7 +27,7 @@ final class AtomicCompareAndSwapTest extends TestCase
             file_put_contents($path, "# ABC-1: Concurrent edit\n\n- **Ticket:** ABC-1\n- **Lane:** BACKLOG\n");
 
             $this->expectException(ConflictException::class);
-            $repository->atomicWrite($path, "replacement", $revisionReadByFirstWriter);
+            $repository->atomicWrite($path, 'replacement', $revisionReadByFirstWriter);
         } finally {
             foreach (glob($root . '/todo/cards/*') ?: [] as $file) {
                 unlink($file);
