@@ -105,7 +105,7 @@ jobs:
           {
             composer config repositories.agent-kanban path ../agent-kanban
             composer require voku/agent-kanban:@dev --no-update
-            composer update voku/agent-kanban --with-dependencies --no-interaction
+            composer update --no-interaction
           } 2>&1 | tee agent-loop-install.log
       - name: Upload agent-loop install diagnostics
         if: failure()
