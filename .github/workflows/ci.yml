@@ -79,3 +79,30 @@ jobs:
           composer config repositories.local path "$GITHUB_WORKSPACE"
           composer require voku/agent-kanban:@dev --no-interaction
           ./vendor/bin/agent-kanban help
+
+  agent-loop-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          path: agent-kanban
+      - uses: actions/checkout@v4
+        with:
+          repository: voku/agent-loop
+          persist-credentials: false
+          path: agent-loop
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+      - name: Install this pull request into agent-loop
+        working-directory: agent-loop
+        run: |
+          composer config repositories.agent-kanban path ../agent-kanban
+          composer require voku/agent-kanban:@dev --no-update
+          composer update voku/agent-kanban --with-dependencies --no-interaction
+      - name: Run agent-loop quality gate
+        working-directory: agent-loop
+        run: composer ci
