@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.2.1 - 2026-07-13
+
+- Handle additional case for empty priority in CardParser
+
 ## 0.2.0 — 2026-07-12
 
 ... typed engine, safe mutations, JSON output, CLI rewrite
