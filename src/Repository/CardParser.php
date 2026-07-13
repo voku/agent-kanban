@@ -219,7 +219,7 @@ final class CardParser
     private function parsePriority(array $metadata, string $sourceFile): ?int
     {
         $raw = $metadata['Priority'] ?? $metadata['Next pull rank'] ?? null;
-        if ($raw === null || trim($raw) === '') {
+        if ($raw === null || trim($raw) === '' || trim($raw) === '-') {
             return null;
         }
 
