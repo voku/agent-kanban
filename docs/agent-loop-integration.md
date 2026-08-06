@@ -1,151 +1,195 @@
 # Integrating with `voku/agent-loop`
 
-`agent-kanban` owns the board: parsing, verification, queries, rendering,
-mutations. `agent-loop` owns everything around starting and running a coding
-agent (sessions, memory, learning extraction, workflow governance, PR
-creation, ...). This document describes the stable, typed contract
-`agent-loop` should consume from `agent-kanban`, and where the boundary sits.
+`agent-kanban` owns durable board state: parsing, verification, queries,
+rendering and safe card mutations. `agent-loop` owns the cross-package workflow
+around that state: deciding when to claim work, starting sessions, preparing
+recall, executing and verifying edits, reviewing, learning and closing.
 
-> **Scope note.** This document was written from `agent-kanban`'s own public
-> API surface and the compatibility fixtures in this repository. The session
-> that authored it did not have access to the `voku/agent-loop` source (its
-> GitHub access was scoped to `voku/agent-kanban` only for this piece of
-> work), so the contract below has **not** been diff-checked against
-> `agent-loop`'s actual current usage. Treat it as the intended integration
-> surface; before relying on it, run `agent-loop`'s own test suite against
-> this branch and confirm nothing in this document contradicts how it
-> actually calls into `agent-kanban` today. Anything that does not match
-> should be treated as an `agent-kanban` bug to fix, not something
-> `agent-loop` should work around — see `UPGRADING.md`.
->
-> **Migration status.** The current `voku/agent-loop` codebase still calls
-> the pre-1.0 `TodoBoardSource`/`TodoBoardVerifier`/`TodoBoardCli` classes
-> and CLI commands, all of which this release removes (see `UPGRADING.md`).
-> `agent-loop` is **expected to be broken against this branch until it is
-> migrated separately**, in its own follow-up work, onto the typed contract
-> described below. This package's CI intentionally does not check out or
-> build `agent-loop` — that migration is out of scope here and belongs to
-> that follow-up, not to a compatibility shim added to this repository.
+This document describes the current typed integration boundary. It does not
+claim that `agent-kanban` owns any part of the larger governed lifecycle.
 
-## What `agent-loop` should consume
+## Current integration status
+
+Current `agent-loop` delegates its `board` and `board:verify` namespaces to
+`voku\AgentKanban\Cli\CliApplication`. The removed pre-1.0
+`TodoBoardSource`/`TodoBoardVerifier`/`TodoBoardCli` classes are historical and
+are not the current integration path.
+
+The package-local tests below prove the behavior of the typed board engine. A
+clean installed-package release-set smoke in `agent-loop` is the required proof
+that the complete package set works together in a consumer repository. Package
+READMEs agreeing with one another is useful, but it is not executable evidence.
+
+Tracking work:
+
+- [agent-kanban#2](https://github.com/voku/agent-kanban/issues/2)
+- [agent-loop#18](https://github.com/voku/agent-loop/issues/18)
+- [agent-loop#19](https://github.com/voku/agent-loop/issues/19)
+- [agent-loop#20](https://github.com/voku/agent-loop/issues/20)
+
+## Ownership boundary
+
+| Concern | Owner |
+| --- | --- |
+| Parse and serialize card files | `agent-kanban` |
+| Validate board policy, claims and transitions | `agent-kanban` |
+| Query or render cards | `agent-kanban` |
+| Perform atomic card mutations | `agent-kanban` |
+| Decide when a workflow should claim/release/move a card | `agent-loop` |
+| Session, recall, map, edit, verification and learning lifecycle | `agent-loop` and their focused packages |
+| Cross-package run manifest and joined status | `agent-loop` |
+
+`agent-loop` may reference board state, but it must not duplicate or reinterpret
+board rules.
+
+## Typed API consumed by an orchestrator
 
 | Need | Type |
 | --- | --- |
 | Read board configuration | `voku\AgentKanban\Config\BoardConfig` |
 | Read cards from disk | `voku\AgentKanban\Repository\MarkdownCardRepository` |
-| Look up / filter / search cards | `voku\AgentKanban\Query\BoardQueryService` |
-| Check whether a board is healthy before starting work | `voku\AgentKanban\Verification\BoardVerifier` + `VerificationReport` |
-| Check whether a lane move is allowed | `voku\AgentKanban\Transition\TransitionPolicy` |
-| Claim a card before starting a session | `voku\AgentKanban\Mutation\CardMutationService::claim()` |
-| Release a claim when a session ends | `voku\AgentKanban\Mutation\CardMutationService::release()` |
-| Move a card as work progresses | `voku\AgentKanban\Mutation\CardMutationService::move()` |
-| Render a card or board for display | `voku\AgentKanban\Rendering\BoardRenderer` / `JsonBoardRenderer` |
+| Look up, filter and search cards | `voku\AgentKanban\Query\BoardQueryService` |
+| Verify board health | `voku\AgentKanban\Verification\BoardVerifier` and `VerificationReport` |
+| Check a lane transition | `voku\AgentKanban\Transition\TransitionPolicy` |
+| Claim or release a card | `voku\AgentKanban\Mutation\CardMutationService` |
+| Move/archive/restore a card | `voku\AgentKanban\Mutation\CardMutationService` |
+| Render for humans or agents | `BoardRenderer` and `JsonBoardRenderer` |
 
-None of these types touch a network, a process, or a session. `agent-loop`
-is expected to own the actual decision of *when* to call them (e.g. "claim
-the next-pull candidate, then start a session").
+These types do not start agents, create sessions, compile recall or make network
+calls. The orchestrator decides when to use them.
 
-## Example: pulling and claiming the next card
+## Reading and verifying a board
 
 ```php
+use voku\AgentKanban\Board;
 use voku\AgentKanban\Config\BoardConfig;
 use voku\AgentKanban\Repository\MarkdownCardRepository;
-use voku\AgentKanban\Query\BoardQueryService;
-use voku\AgentKanban\Mutation\CardMutationService;
+use voku\AgentKanban\Verification\BoardVerifier;
 
 $config = BoardConfig::fromJsonFile($root . '/todo/kanban.config.json');
 $repository = new MarkdownCardRepository($root, $config);
-$board = new \voku\AgentKanban\Board($config, $repository->loadAll(), $repository->resolveCardDirectory());
-
-$candidates = (new BoardQueryService($board))->nextPullCandidates();
-if ($candidates === []) {
-    return; // nothing to do
-}
-
-$card = $candidates[0];
-$mutation = new CardMutationService($root, $config, $repository);
-$result = $mutation->claim($card->id, actor: 'agent-loop-session-42', moveToDoing: true);
-
-// $result->card->lane is now DOING (if the transition was allowed);
-// $result->warnings explains why not, otherwise.
-```
-
-## Example: verifying before/after a session
-
-```php
-use voku\AgentKanban\Verification\BoardVerifier;
-
-$lenient = $repository->loadAllLenient();
-$board = new \voku\AgentKanban\Board($config, $lenient->cards, $repository->resolveCardDirectory());
-$report = (new BoardVerifier())->verify($board, $lenient->failures);
+$loaded = $repository->loadAllLenient();
+$board = new Board($config, $loaded->cards, $repository->resolveCardDirectory());
+$report = (new BoardVerifier())->verify($board, $loaded->failures);
 
 if (!$report->isValid()) {
     foreach ($report->errors() as $violation) {
-        // surface $violation->code, ->message, ->cardId, ->field, ->file
-        // to the agent-loop session log; agent-loop decides whether this
-        // blocks starting/finishing a session.
+        // Surface the structured code/message/card/field/file evidence.
+        // The orchestrator decides whether the workflow may continue.
     }
 }
 ```
 
-## Example: validating a transition before agent-loop marks work done
+`agent-kanban` produces the structured violations. `agent-loop` owns the
+cross-package decision and recovery message.
+
+## Pulling and claiming work
 
 ```php
-use voku\AgentKanban\Transition\TransitionPolicy;
+use voku\AgentKanban\Mutation\CardMutationService;
+use voku\AgentKanban\Query\BoardQueryService;
+
+$candidates = (new BoardQueryService($board))->nextPullCandidates();
+if ($candidates !== []) {
+    $mutation = new CardMutationService($root, $config, $repository);
+    $result = $mutation->claim(
+        $candidates[0]->id,
+        actor: 'agent-loop-session-42',
+        moveToDoing: true,
+    );
+}
+```
+
+The card mutation is authoritative for claim and transition validity. A claim
+conflict is not silently overwritten by orchestration.
+
+## Transition checks
+
+```php
 use voku\AgentKanban\Domain\Lane;
+use voku\AgentKanban\Transition\TransitionPolicy;
 
 $policy = new TransitionPolicy($config);
-if (!$policy->canTransition($card->lane, Lane::fromString('VERIFY'))) {
-    // agent-loop should not silently force the move; surface this to the
-    // session instead.
+$allowed = $policy->canTransition($card->lane, Lane::fromString('VERIFY'));
+
+if (!$allowed) {
+    // Surface the reason. Do not force the move merely to make the workflow green.
 }
 ```
 
 ## Conflict handling
 
-`CardMutationService` methods throw
-`voku\AgentKanban\Exception\ConflictException` (revision or claim conflicts)
-and `voku\AgentKanban\Exception\ValidationException` (bad input, disallowed
-transition). `agent-loop` should catch these at the session-orchestration
-boundary and decide how to react (retry, surface to the user, abandon the
-claim) — `agent-kanban` deliberately has no opinion on retry policy or
-session lifecycle.
+Mutation methods may throw:
 
-## What stays in `agent-loop`
+- `voku\AgentKanban\Exception\ConflictException` for revision or claim
+  conflicts;
+- `voku\AgentKanban\Exception\ValidationException` for invalid input or
+  disallowed transitions.
 
-Per `README.md`'s product boundary, `agent-kanban` never gains: session
-lifecycle, recall/memory compilation, learning extraction, durable
-project-memory promotion, PR creation, Git worktree orchestration, or
-cross-package workflow governance. If an integration need would require
-adding one of these to `agent-kanban`, it belongs in `agent-loop` instead,
-consuming the typed contract above.
+`agent-loop` catches these at the orchestration boundary and decides whether to
+surface, retry after rereading, abandon the claim or require an explicit human
+decision. `agent-kanban` deliberately does not own session retry policy.
 
-## The old operating-prompt prose (moving to `agent-recall-compiler`)
+## Board reference in a governed run
 
-The pre-1.0 generated board Markdown mixed live board data with a static
-block of process instructions (WIP policy, pull rules, an "Agent Pull
-Checklist", etc.). That prose was project-specific policy, not board state,
-so it has no home in `agent-kanban` and was deleted rather than rebuilt here
-(see `UPGRADING.md`). It is preserved verbatim, with a mapping from each old
-section to the typed `agent-kanban` call that should feed it, in
-`docs/legacy-operating-prompt.md` — use that as the source document when
-rebuilding this as a template in `agent-recall-compiler` for `agent-loop` to
-call before/during kanban-maintenance sessions.
+The cross-package run manifest belongs to `agent-loop`. A board reference should
+point to owning board evidence rather than copy mutable card state.
 
-## Contract fixtures
+The planned reference contains:
 
-The following existing tests double as executable contract fixtures for
-integration purposes — they demonstrate the exact behavior `agent-loop` can
-depend on:
+- board/config schema identity;
+- card ID and source path;
+- card revision/content digest;
+- lane and status;
+- claim identity when present;
+- board verification state.
 
-- `tests/Mutation/CardMutationServiceTest.php` — claim/release/conflict
-  semantics.
-- `tests/Verification/BoardVerifierTest.php` — violation shape and codes.
-- `tests/Transition/TransitionPolicyTest.php` — the default transition
-  graph.
-- `tests/Rendering/JsonBoardRendererTest.php` — the JSON envelope shape
-  (schema version, field names).
+Board state is optional for an ad hoc task unless the chosen workflow mode
+requires a card. “No board” and “invalid board” are different states.
 
-If `agent-loop` needs a scenario not covered here, the preferred path is to
-add a fixture/test in this repository (or an equivalent contract test in
-`agent-loop`) rather than relying on undocumented behavior.
+See [agent-kanban#2](https://github.com/voku/agent-kanban/issues/2) for the
+versioned reference contract work.
+
+## What stays out of `agent-kanban`
+
+Do not add any of the following merely to simplify the umbrella package:
+
+- session lifecycle;
+- recall or memory compilation;
+- repository maps/search;
+- edit execution or verification;
+- durable learning extraction or promotion;
+- PR creation or Git worktree orchestration;
+- cross-package close gates;
+- general retry policy.
+
+Those concerns belong to `agent-loop` or another focused package. Reimplementing
+them here would create two authorities, which is a surprisingly efficient way
+to make both wrong.
+
+## Operating guidance
+
+The removed pre-1.0 generated board Markdown mixed current board data with a
+static operating prompt. That policy prose is not board state and does not
+belong in this package's runtime model.
+
+The historical text remains in
+[`docs/legacy-operating-prompt.md`](legacy-operating-prompt.md) as migration
+material. Current managed agent guidance belongs in the `agent-loop` setup and
+recall path, with explicit capability/version metadata so it can be checked
+against the installed runtime.
+
+## Executable contract fixtures
+
+The following package-local tests define behavior an orchestrator may rely on:
+
+- `tests/Mutation/CardMutationServiceTest.php` for claim, release and conflict
+  semantics;
+- `tests/Verification/BoardVerifierTest.php` for structured violations;
+- `tests/Transition/TransitionPolicyTest.php` for transition policy;
+- `tests/Rendering/JsonBoardRendererTest.php` for the versioned JSON envelope.
+
+When `agent-loop` needs a new board behavior, first add or identify an owning
+package fixture. The installed release-set smoke then proves the complete
+cross-package path. Do not document an integration claim that neither side
+executes.
