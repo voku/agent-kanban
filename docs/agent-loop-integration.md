@@ -110,9 +110,9 @@ use voku\AgentKanban\Domain\Lane;
 use voku\AgentKanban\Transition\TransitionPolicy;
 
 $policy = new TransitionPolicy($config);
-$result = $policy->evaluate($card->lane, Lane::fromString('VERIFY'));
+$allowed = $policy->canTransition($card->lane, Lane::fromString('VERIFY'));
 
-if (!$result->allowed) {
+if (!$allowed) {
     // Surface the reason. Do not force the move merely to make the workflow green.
 }
 ```
