@@ -1,5 +1,24 @@
 # Upgrading
 
+## Default workspace moves below `.agent-loop/`
+
+**Breaking:** the standalone `agent-kanban` CLI now uses `<cwd>/.agent-loop`
+as its default workspace. The existing board format does not change; only the
+default location changes:
+
+```text
+todo/ -> .agent-loop/todo/
+```
+
+Move the existing `todo/` directory once, then run `agent-kanban verify`.
+There is deliberately no automatic fallback, copy, symlink, or dual-write to
+the historical location. If a repository intentionally keeps the old layout,
+pass its project root explicitly with `--root`.
+
+The PHP APIs remain explicit about their root path, so callers that already
+construct `CliApplication`, `MarkdownCardRepository`, or `Board` with a root do
+not inherit a hidden migration.
+
 ## From 0.1.x
 
 **This is a breaking release.** `agent-kanban` has one known consumer
@@ -15,7 +34,7 @@ What is **not** breaking: the on-disk board format. `todo/cards/` and
 `Next pull rank` field, and the legacy `dd.mm.YYYY[ HH:MM:SS]` timestamp
 format) parse unchanged, and no card file is ever rewritten as a side effect
 of reading it. If you only ever interacted with boards through card files on
-disk, you have nothing to change.
+disk, you have nothing to change beyond the default workspace move above.
 
 ### Removed PHP classes and their replacements
 
