@@ -26,10 +26,14 @@ require $autoloader;
 
 use voku\AgentKanban\Cli\CliApplication;
 
-$rootPath = getcwd();
-if ($rootPath === false) {
+$projectRoot = getcwd();
+if ($projectRoot === false) {
     fwrite(STDERR, "Could not determine current working directory.\n");
     exit(1);
 }
 
-exit((new CliApplication($rootPath))->run($argv));
+// The standalone CLI shares agent-loop's canonical repository-local state
+// root. Pass --root explicitly to use any other board workspace.
+$defaultRootPath = rtrim(str_replace('\\', '/', $projectRoot), '/') . '/.agent-loop';
+
+exit((new CliApplication($defaultRootPath))->run($argv));
