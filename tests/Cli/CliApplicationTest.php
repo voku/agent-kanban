@@ -15,9 +15,7 @@ use PHPUnit\Framework\TestCase;
  */
 final class CliApplicationTest extends TestCase
 {
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     private array $tempDirs = [];
 
     #[After]
@@ -53,6 +51,26 @@ final class CliApplicationTest extends TestCase
         self::assertStringContainsString('Usage: agent-kanban', $result['stdout']);
     }
 
+    public function testStandaloneCliDefaultsToCompactWorkspace(): void
+    {
+        $project = sys_get_temp_dir() . '/agent_kanban_compact_default_' . bin2hex(random_bytes(6));
+        mkdir($project . '/.agent-loop/todo/cards', 0o777, true);
+        file_put_contents(
+            $project . '/.agent-loop/todo/board.md',
+            "# Board Metadata\n\n- **Project prefix:** `ABC`\n- **Done count:** 0\n",
+        );
+        file_put_contents(
+            $project . '/.agent-loop/todo/cards/ABC-1.md',
+            "# ABC-1: Compact default\n\n- **Ticket:** ABC-1\n- **Lane:** READY\n- **Status:** Selected\n",
+        );
+        $this->tempDirs[] = $project;
+
+        $result = $this->runCli(['summary'], $project, [], true);
+
+        self::assertSame(0, $result['exitCode']);
+        self::assertStringContainsString('READY', $result['stdout']);
+    }
+
     public function testUnknownCommandExitsNonZeroAndWritesToStderr(): void
     {
         $result = $this->runCli(['bogus-command'], $this->fixtureRoot());
@@ -71,9 +89,7 @@ final class CliApplicationTest extends TestCase
         yield 'jira-sync' => [['jira-sync']];
     }
 
-    /**
-     * @param list<string> $args
-     */
+    /** @param list<string> $args */
     #[DataProvider('removedLegacyCommandProvider')]
     public function testRemovedLegacyCommandsAreRejectedAsUnknown(array $args): void
     {
@@ -271,9 +287,12 @@ final class CliApplicationTest extends TestCase
      *
      * @return array{stdout: string, stderr: string, exitCode: int}
      */
-    private function runCli(array $args, string $cwd, array $extraEnv = []): array
+    private function runCli(array $args, string $cwd, array $extraEnv = [], bool $useDefaultRoot = false): array
     {
         $bin = dirname(__DIR__, 2) . '/bin/agent-kanban';
+        if (!$useDefaultRoot) {
+            $args[] = '--root=' . $cwd;
+        }
         $command = array_merge(['php', $bin], $args);
         $escaped = implode(' ', array_map('escapeshellarg', $command));
 
