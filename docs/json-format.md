@@ -115,8 +115,10 @@ not infer "field unset" from "key missing" unless it knows which selection it
 asked for. Consumers that never pass `--fields` are unaffected.
 
 The complementary `--compact` flag (valid for every shape on this page, not
-only card objects) removes pretty-print indentation and newlines. It changes
-no data, no key order, and no escaping — only insignificant whitespace. Both
+only card objects) removes the pretty-printer's indentation and internal line
+breaks. Every document still ends with a single trailing newline, so
+line-oriented readers keep working. It changes no data, no key order, and no
+escaping — only insignificant whitespace. Both
 options exist so an orchestrator like `voku/agent-loop` can read a board
 without paying for prose it will not use; see `docs/cli.md` for the full
 option reference.

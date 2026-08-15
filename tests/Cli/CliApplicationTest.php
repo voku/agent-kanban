@@ -442,6 +442,62 @@ final class CliApplicationTest extends TestCase
         self::assertStringContainsString('Invalid --format', $result['stderr']);
     }
 
+    /** @return iterable<string, array{list<string>}> */
+    public static function malformedOptionProvider(): iterable
+    {
+        yield 'empty --fields value' => [['render', '--fields=']];
+        yield 'valueless --fields' => [['render', '--fields']];
+        yield 'valueless --limit' => [['render', '--limit']];
+        yield 'unknown option' => [['render', '--bogus=1']];
+        yield 'value on a boolean flag' => [['render', '--compact=yes']];
+        yield 'duplicate option' => [['render', '--limit=1', '--limit=2']];
+    }
+
+    /**
+     * A token the parser rejects must be reported like any other validation
+     * error — exit code 1, no raw stack trace — rather than escaping as an
+     * uncaught fatal.
+     *
+     * @param list<string> $args
+     */
+    #[DataProvider('malformedOptionProvider')]
+    public function testMalformedOptionsAreReportedNotFatal(array $args): void
+    {
+        $result = $this->runCli($args, $this->emptyBoard());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringNotContainsString('Fatal error', $result['stderr']);
+        self::assertStringNotContainsString('Stack trace', $result['stderr']);
+        self::assertStringContainsString('ERROR: ', $result['stderr']);
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    #[DataProvider('malformedOptionProvider')]
+    public function testMalformedOptionsAreReportedAsJsonWhenJsonWasRequested(array $args): void
+    {
+        $args[] = '--format=json';
+        $result = $this->runCli($args, $this->emptyBoard());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringNotContainsString('Fatal error', $result['stderr']);
+
+        $decoded = json_decode($result['stdout'], true);
+        self::assertIsArray($decoded);
+        self::assertSame('error', $decoded['type']);
+        self::assertSame(1, $decoded['schemaVersion']);
+    }
+
+    public function testAMalformedOptionStillHonoursCompactForItsJsonError(): void
+    {
+        $result = $this->runCli(['render', '--format=json', '--compact', '--fields='], $this->emptyBoard());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringNotContainsString("\n    ", $result['stdout']);
+        self::assertIsArray(json_decode($result['stdout'], true));
+    }
+
     public function testFieldsIsRejectedForCommandsWithoutCardOutput(): void
     {
         $result = $this->runCli(['summary', '--format=json', '--fields=lane'], $this->boardWithBriefs());

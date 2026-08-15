@@ -101,11 +101,16 @@ final class CliApplication
             return self::EXIT_OK;
         }
 
-        $parsed = ArgvParser::parse($tokens);
-        $positional = $parsed['positional'];
-        $command = $positional[0] ?? '';
+        $output = null;
 
         try {
+            // Inside the boundary on purpose: ArgvParser rejects malformed
+            // tokens by throwing, and those rejections have to be reported
+            // through reportError() like any other, not escape as a fatal.
+            $parsed = ArgvParser::parse($tokens);
+            $positional = $parsed['positional'];
+            $command = $positional[0] ?? '';
+
             $output = OutputOptions::fromArgs($parsed);
             $context = $this->contextFactory->create(
                 $this->defaultRootPath,
@@ -128,7 +133,7 @@ final class CliApplication
                 default         => $this->cmdUnknown($command),
             };
         } catch (AgentKanbanException $exception) {
-            return $this->reportError($exception, $output ?? OutputOptions::errorFallbackFromArgs($parsed));
+            return $this->reportError($exception, $output ?? OutputOptions::errorFallbackFromTokens($tokens));
         }
     }
 

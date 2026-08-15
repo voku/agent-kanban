@@ -81,8 +81,10 @@ See `docs/json-format.md` for every JSON shape.
 board state to a language model rather than to a human:
 
 ```php
+use voku\AgentKanban\Query\BoardQueryService;
 use voku\AgentKanban\Rendering\CardFieldSelection;
 
+$cards = (new BoardQueryService($board))->nextPullCandidates();
 $renderer = new JsonBoardRenderer();
 $selection = CardFieldSelection::fromString('lane,status,priority');
 

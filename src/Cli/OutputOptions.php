@@ -61,26 +61,32 @@ final readonly class OutputOptions
     }
 
     /**
-     * The options an error should be reported with when {@see self::fromArgs()}
-     * itself threw — a bad `--fields` value, say.
+     * The options an error should be reported with when the command never got
+     * far enough to build a real {@see self} — `ArgvParser::parse()` rejected
+     * a token, or {@see self::fromArgs()} rejected a `--fields` value.
      *
-     * Never throws, and deliberately keeps `--format=json`: a caller that
-     * cannot read anything but JSON must still get JSON back when the thing
-     * that was wrong is the option it used to ask for smaller JSON.
+     * Reads the raw tokens rather than a parsed argument array, because the
+     * earliest failures happen before one exists. Never throws, and
+     * deliberately keeps `--format=json`: a caller that cannot read anything
+     * but JSON must still get JSON back when the thing that was wrong is the
+     * option it used to ask for JSON in the first place.
      *
-     * @param ParsedArgs $parsed
+     * @param list<string> $tokens
      */
-    public static function errorFallbackFromArgs(array $parsed): self
+    public static function errorFallbackFromTokens(array $tokens): self
     {
-        $requestedFormat = $parsed['options']['format'] ?? null;
-        $format = is_string($requestedFormat)
-            ? OutputFormat::tryFrom($requestedFormat) ?? OutputFormat::Text
-            : OutputFormat::Text;
+        $format = OutputFormat::Text;
+        $compact = false;
 
-        return new self(
-            $format,
-            $format === OutputFormat::Json && ($parsed['options']['compact'] ?? false) === true,
-        );
+        foreach ($tokens as $token) {
+            if (str_starts_with($token, '--format=')) {
+                $format = OutputFormat::tryFrom(substr($token, strlen('--format='))) ?? OutputFormat::Text;
+            } elseif ($token === '--compact') {
+                $compact = true;
+            }
+        }
+
+        return new self($format, $format === OutputFormat::Json && $compact);
     }
 
     public function isJson(): bool

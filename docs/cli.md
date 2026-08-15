@@ -56,7 +56,7 @@ Two options reduce it. Both apply to the commands that emit card objects
 | Option | Effect |
 | --- | --- |
 | `--fields=a,b,c` | Emit only these card fields. |
-| `--compact` | Emit the JSON without pretty-print indentation and newlines. |
+| `--compact` | Emit the JSON without pretty-print indentation and line breaks. The single trailing newline after the document is kept. |
 
 ```bash
 vendor/bin/agent-kanban next-pull --format=json --fields=lane,status,priority --compact
@@ -108,7 +108,8 @@ of ignored.
 
 On top of that, each command only accepts the options that are actually
 meaningful for it — `--root`, `--config`, and `--format` are the only
-options every command accepts; anything else is validated against a
+options every command accepts unconditionally, joined by `--compact` whenever
+`--format=json` is in play; anything else is validated against a
 per-command allow-list (e.g. `summary --actor=someone` and
 `verify --title=Something` are both rejected, not silently ignored, even
 though `--actor` and `--title` are valid options for other commands). Every

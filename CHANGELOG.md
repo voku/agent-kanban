@@ -32,6 +32,17 @@ See `docs/cli.md` ("Keeping JSON output small"), `docs/json-format.md`
 ("Reduced card objects") and `docs/agent-loop-integration.md` ("Reading a
 board without spending the context window").
 
+### Fixed
+
+- A malformed option token (`--fields`, `--fields=`, `--limit`, `--bogus=1`,
+  `--compact=yes`, a repeated option, ...) escaped the CLI as an uncaught
+  exception: a raw stack trace on STDERR and exit code `255`, instead of the
+  documented `ValidationException` behavior of a clean message and exit code
+  `1`. `ArgvParser::parse()` ran outside `CliApplication::run()`'s error
+  boundary; it now runs inside it, and `--format=json` is honored for these
+  errors too, so a JSON-only consumer gets a JSON `error` document rather than
+  a stack trace. Present since 0.2.0 and not specific to the new options.
+
 ## 0.2.1 - 2026-07-13
 
 - Handle additional case for empty priority in CardParser
