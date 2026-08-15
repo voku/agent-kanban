@@ -8,14 +8,12 @@ use voku\AgentKanban\Exception\ValidationException;
 use voku\AgentKanban\Rendering\CardFieldSelection;
 
 /**
- * How one CLI invocation should write its result: the format, plus the two
- * knobs that exist purely to keep board JSON small enough to hand to a
- * language model (`--compact`, `--fields=`).
+ * How one CLI invocation should write its result.
  *
- * Both knobs only mean anything for `--format=json`, and both are rejected
- * rather than ignored with any other format — an agent that believes it asked
- * for reduced output and silently got the full document would be wrong about
- * its own budget.
+ * `--fields=` is a semantic projection and therefore applies to either
+ * structured card format (`json` or `toon`). `--compact` only controls JSON
+ * whitespace and is rejected for every other format rather than silently doing
+ * nothing.
  *
  * @phpstan-import-type ParsedArgs from ArgvParser
  */
@@ -37,20 +35,18 @@ final readonly class OutputOptions
         $compact = ArgvParser::boolOption($parsed, 'compact');
         $fieldsValue = ArgvParser::stringOption($parsed, 'fields');
 
-        if ($format !== OutputFormat::Json) {
-            if ($compact) {
-                throw new ValidationException(
-                    'Option --compact requires --format=json.',
-                    field: 'compact',
-                );
-            }
+        if ($format !== OutputFormat::Json && $compact) {
+            throw new ValidationException(
+                'Option --compact requires --format=json.',
+                field: 'compact',
+            );
+        }
 
-            if ($fieldsValue !== null) {
-                throw new ValidationException(
-                    'Option --fields requires --format=json.',
-                    field: 'fields',
-                );
-            }
+        if (!in_array($format, [OutputFormat::Json, OutputFormat::Toon], true) && $fieldsValue !== null) {
+            throw new ValidationException(
+                'Option --fields requires --format=json or --format=toon.',
+                field: 'fields',
+            );
         }
 
         return new self(
@@ -61,15 +57,13 @@ final readonly class OutputOptions
     }
 
     /**
-     * The options an error should be reported with when the command never got
-     * far enough to build a real {@see self} — `ArgvParser::parse()` rejected
-     * a token, or {@see self::fromArgs()} rejected a `--fields` value.
+     * The options an error should be reported with when parsing failed before a
+     * real {@see self} could be built.
      *
-     * Reads the raw tokens rather than a parsed argument array, because the
-     * earliest failures happen before one exists. Never throws, and
-     * deliberately keeps `--format=json`: a caller that cannot read anything
-     * but JSON must still get JSON back when the thing that was wrong is the
-     * option it used to ask for JSON in the first place.
+     * Reads the raw tokens because the earliest failures happen before a parsed
+     * argument array exists. It never throws. A valid requested structured
+     * format is preserved so a JSON-only or TOON-only consumer still receives a
+     * parseable error document.
      *
      * @param list<string> $tokens
      */
@@ -77,11 +71,23 @@ final readonly class OutputOptions
     {
         $format = OutputFormat::Text;
         $compact = false;
+        $count = count($tokens);
 
-        foreach ($tokens as $token) {
+        for ($index = 0; $index < $count; ++$index) {
+            $token = $tokens[$index];
             if (str_starts_with($token, '--format=')) {
                 $format = OutputFormat::tryFrom(substr($token, strlen('--format='))) ?? OutputFormat::Text;
-            } elseif ($token === '--compact') {
+                continue;
+            }
+            if ($token === '--format') {
+                $candidate = $tokens[$index + 1] ?? null;
+                if (is_string($candidate) && !str_starts_with($candidate, '--')) {
+                    $format = OutputFormat::tryFrom($candidate) ?? OutputFormat::Text;
+                    ++$index;
+                }
+                continue;
+            }
+            if ($token === '--compact') {
                 $compact = true;
             }
         }
@@ -92,5 +98,10 @@ final readonly class OutputOptions
     public function isJson(): bool
     {
         return $this->format === OutputFormat::Json;
+    }
+
+    public function isStructured(): bool
+    {
+        return in_array($this->format, [OutputFormat::Json, OutputFormat::Toon], true);
     }
 }
