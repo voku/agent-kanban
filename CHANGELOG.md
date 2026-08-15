@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.0 - 2026-08-15
+
+### Changed
+
+- **Breaking:** the standalone CLI default workspace moves from `<cwd>` to
+  `<cwd>/.agent-loop`, so the default board directory moves from `todo/` to
+  `.agent-loop/todo/`. There is deliberately no hidden fallback or dual-read;
+  callers that keep a custom/legacy location must pass `--root` explicitly.
+  The typed PHP APIs remain explicit about their root and therefore do not
+  inherit this CLI-only migration. See `UPGRADING.md`.
+- Release tags can now be requested deterministically through
+  `.release/<version>.json`, bound to an exact candidate SHA. This matches the
+  release mechanism used by the sibling agent packages instead of relying on
+  an unrecorded manual tag step.
+
 ### Added
 
 - `--fields=<a,b,c>` for the commands that emit card objects (`render`,
