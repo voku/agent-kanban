@@ -16,8 +16,7 @@
   ],
   "require": {
     "php": "^8.3",
-    "ext-mbstring": "*",
-    "helgesverre/toon": "^3.1"
+    "ext-mbstring": "*"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.75",
