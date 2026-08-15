@@ -77,6 +77,27 @@ $json = (new JsonBoardRenderer())->encode((new JsonBoardRenderer())->summaryToAr
 
 See `docs/json-format.md` for every JSON shape.
 
+`JsonBoardRenderer` can also emit a reduced card object, for callers feeding
+board state to a language model rather than to a human:
+
+```php
+use voku\AgentKanban\Rendering\CardFieldSelection;
+
+$renderer = new JsonBoardRenderer();
+$selection = CardFieldSelection::fromString('lane,status,priority');
+
+// Same envelope and schemaVersion; only the named card keys, plus `id`.
+$small = $renderer->encode($renderer->cardsToEnvelope($cards, $selection), compact: true);
+
+// Unchanged: passing no selection still returns the complete card object.
+$full = $renderer->encode($renderer->cardsToEnvelope($cards));
+```
+
+`CardFieldSelection::fromString()` throws `ValidationException` for an unknown,
+repeated or empty field name. `CardFieldSelection::AVAILABLE_FIELDS` is the
+authoritative list, and `CardFieldSelection::all()` is an explicit no-op
+selection.
+
 ## Mutating
 
 ```php

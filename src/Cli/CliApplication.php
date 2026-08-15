@@ -55,21 +55,21 @@ final class CliApplication
     public const int EXIT_EXTERNAL_PROVIDER_ERROR = 6;
 
     /** @var list<string> */
-    private const array GLOBAL_OPTIONS = ['format', 'root', 'config'];
+    private const array GLOBAL_OPTIONS = ['format', 'root', 'config', 'compact'];
 
     /** @var array<string, list<string>> */
     private const array COMMAND_OPTIONS = [
         'summary'       => [],
-        'render'        => ['lanes', 'lane', 'domain', 'assignee', 'status', 'search', 'limit'],
+        'render'        => ['lanes', 'lane', 'domain', 'assignee', 'status', 'search', 'limit', 'fields'],
         'verify'        => [],
-        'next-pull'     => [],
-        'lane'          => [],
+        'next-pull'     => ['fields'],
+        'lane'          => ['fields'],
         'external-sync' => ['provider-class', 'query'],
     ];
 
     /** @var array<string, list<string>> */
     private const array CARD_SUBCOMMAND_OPTIONS = [
-        'show'    => [],
+        'show'    => ['fields'],
         'create'  => ['title', 'lane', 'status', 'summary', 'dry-run'],
         'update'  => [
             'title', 'status', 'domain', 'assignee', 'summary', 'next', 'validation',
@@ -106,7 +106,7 @@ final class CliApplication
         $command = $positional[0] ?? '';
 
         try {
-            $format = OutputFormat::fromString(ArgvParser::stringOption($parsed, 'format'));
+            $output = OutputOptions::fromArgs($parsed);
             $context = $this->contextFactory->create(
                 $this->defaultRootPath,
                 ArgvParser::stringOption($parsed, 'root'),
@@ -118,17 +118,17 @@ final class CliApplication
             }
 
             return match ($command) {
-                'summary'       => $this->cmdSummary($context, $format),
-                'render'        => $this->cmdRender($context, $parsed, $format),
-                'verify'        => $this->cmdVerify($context, $format),
-                'next-pull'     => $this->cmdNextPull($context, $format),
-                'lane'          => $this->cmdLane($context, $positional[1] ?? '', $format),
-                'card'          => $this->cmdCard($context, $positional, $parsed, $format),
-                'external-sync' => $this->cmdExternalSync($context, $parsed, $format),
+                'summary'       => $this->cmdSummary($context, $output),
+                'render'        => $this->cmdRender($context, $parsed, $output),
+                'verify'        => $this->cmdVerify($context, $output),
+                'next-pull'     => $this->cmdNextPull($context, $output),
+                'lane'          => $this->cmdLane($context, $positional[1] ?? '', $output),
+                'card'          => $this->cmdCard($context, $positional, $parsed, $output),
+                'external-sync' => $this->cmdExternalSync($context, $parsed, $output),
                 default         => $this->cmdUnknown($command),
             };
         } catch (AgentKanbanException $exception) {
-            return $this->reportError($exception, $format ?? OutputFormat::Text);
+            return $this->reportError($exception, $output ?? OutputOptions::errorFallbackFromArgs($parsed));
         }
     }
 
@@ -139,14 +139,14 @@ final class CliApplication
         return self::EXIT_USAGE_ERROR;
     }
 
-    private function cmdSummary(BoardContext $context, OutputFormat $format): int
+    private function cmdSummary(BoardContext $context, OutputOptions $output): int
     {
         $board = $this->loadBoard($context);
         $renderer = new BoardRenderer();
         $json = new JsonBoardRenderer();
 
-        echo match ($format) {
-            OutputFormat::Json               => $json->encode($json->summaryToArray($board)),
+        echo match ($output->format) {
+            OutputFormat::Json               => $json->encode($json->summaryToArray($board), $output->compact),
             OutputFormat::Markdown, OutputFormat::Text => $renderer->renderSummary($board) . "\n" . $renderer->renderWipHealth($board) . "\n",
         };
 
@@ -156,7 +156,7 @@ final class CliApplication
     /**
      * @param ParsedArgs $parsed
      */
-    private function cmdRender(BoardContext $context, array $parsed, OutputFormat $format): int
+    private function cmdRender(BoardContext $context, array $parsed, OutputOptions $output): int
     {
         $board = $this->loadBoard($context);
         $options = new RenderOptions(
@@ -170,7 +170,7 @@ final class CliApplication
 
         $renderer = new BoardRenderer();
 
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             $query = new BoardQueryService($board);
             $lanes = $options->lanes === [] ? $board->config->lanes : $options->lanes;
 
@@ -181,7 +181,7 @@ final class CliApplication
             }
 
             $json = new JsonBoardRenderer();
-            echo $json->encode($json->cardsToEnvelope($cards));
+            echo $json->encode($json->cardsToEnvelope($cards, $output->fields), $output->compact);
 
             return self::EXIT_OK;
         }
@@ -191,7 +191,7 @@ final class CliApplication
         return self::EXIT_OK;
     }
 
-    private function cmdVerify(BoardContext $context, OutputFormat $format): int
+    private function cmdVerify(BoardContext $context, OutputOptions $output): int
     {
         $lenient = $context->repository->loadAllLenient();
         $board = new Board($context->config, $lenient->cards, $context->repository->resolveCardDirectory() ?? $context->config->cardDirectory);
@@ -199,9 +199,9 @@ final class CliApplication
 
         $report = (new BoardVerifier())->verify($board, $lenient->failures, $verificationContext);
 
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             $json = new JsonBoardRenderer();
-            echo $json->encode($json->verificationReportToArray($report));
+            echo $json->encode($json->verificationReportToArray($report), $output->compact);
         } else {
             if ($report->isValid()) {
                 echo "Board verification passed.\n";
@@ -218,14 +218,14 @@ final class CliApplication
         return $report->isValid() ? self::EXIT_OK : self::EXIT_VERIFICATION_FAILED;
     }
 
-    private function cmdNextPull(BoardContext $context, OutputFormat $format): int
+    private function cmdNextPull(BoardContext $context, OutputOptions $output): int
     {
         $board = $this->loadBoard($context);
         $candidates = (new BoardQueryService($board))->nextPullCandidates();
 
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             $json = new JsonBoardRenderer();
-            echo $json->encode($json->cardsToEnvelope($candidates));
+            echo $json->encode($json->cardsToEnvelope($candidates, $output->fields), $output->compact);
 
             return self::EXIT_OK;
         }
@@ -235,7 +235,7 @@ final class CliApplication
         return self::EXIT_OK;
     }
 
-    private function cmdLane(BoardContext $context, string $laneName, OutputFormat $format): int
+    private function cmdLane(BoardContext $context, string $laneName, OutputOptions $output): int
     {
         if ($laneName === '') {
             fwrite(STDERR, "Usage: agent-kanban lane <LANE>\n");
@@ -254,9 +254,9 @@ final class CliApplication
 
         $cards = (new BoardQueryService($board))->byLane($lane);
 
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             $json = new JsonBoardRenderer();
-            echo $json->encode($json->cardsToEnvelope($cards));
+            echo $json->encode($json->cardsToEnvelope($cards, $output->fields), $output->compact);
 
             return self::EXIT_OK;
         }
@@ -270,7 +270,7 @@ final class CliApplication
      * @param list<string> $positional
      * @param ParsedArgs $parsed
      */
-    private function cmdCard(BoardContext $context, array $positional, array $parsed, OutputFormat $format): int
+    private function cmdCard(BoardContext $context, array $positional, array $parsed, OutputOptions $output): int
     {
         $subcommand = $positional[1] ?? '';
         $cardIdValue = $positional[2] ?? '';
@@ -291,25 +291,25 @@ final class CliApplication
         $expectedRevision = $expectedRevisionValue !== null ? CardRevision::fromHex($expectedRevisionValue) : null;
 
         return match ($subcommand) {
-            'show'    => $this->cardShow($context, $id, $format),
-            'create'  => $this->cardCreate($context, $id, $parsed, $dryRun, $format),
-            'update'  => $this->cardUpdate($context, $id, $parsed, $expectedRevision, $dryRun, $format),
-            'move'    => $this->cardMove($context, $id, $parsed, $expectedRevision, $dryRun, $format),
-            'claim'   => $this->cardClaim($context, $id, $parsed, $expectedRevision, $dryRun, $format),
-            'release' => $this->cardRelease($context, $id, $parsed, $expectedRevision, $dryRun, $format),
-            'archive' => $this->cardArchive($context, $id, $expectedRevision, $dryRun, $format),
-            'restore' => $this->cardRestore($context, $id, $expectedRevision, $dryRun, $format),
+            'show'    => $this->cardShow($context, $id, $output),
+            'create'  => $this->cardCreate($context, $id, $parsed, $dryRun, $output),
+            'update'  => $this->cardUpdate($context, $id, $parsed, $expectedRevision, $dryRun, $output),
+            'move'    => $this->cardMove($context, $id, $parsed, $expectedRevision, $dryRun, $output),
+            'claim'   => $this->cardClaim($context, $id, $parsed, $expectedRevision, $dryRun, $output),
+            'release' => $this->cardRelease($context, $id, $parsed, $expectedRevision, $dryRun, $output),
+            'archive' => $this->cardArchive($context, $id, $expectedRevision, $dryRun, $output),
+            'restore' => $this->cardRestore($context, $id, $expectedRevision, $dryRun, $output),
             default   => $this->cmdUnknown('card ' . $subcommand),
         };
     }
 
-    private function cardShow(BoardContext $context, CardId $id, OutputFormat $format): int
+    private function cardShow(BoardContext $context, CardId $id, OutputOptions $output): int
     {
         $card = $context->repository->load($id);
 
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             $json = new JsonBoardRenderer();
-            echo $json->encode($json->cardToEnvelope($card));
+            echo $json->encode($json->cardToEnvelope($card, $output->fields), $output->compact);
 
             return self::EXIT_OK;
         }
@@ -322,7 +322,7 @@ final class CliApplication
     /**
      * @param ParsedArgs $parsed
      */
-    private function cardCreate(BoardContext $context, CardId $id, array $parsed, bool $dryRun, OutputFormat $format): int
+    private function cardCreate(BoardContext $context, CardId $id, array $parsed, bool $dryRun, OutputOptions $output): int
     {
         $laneValue = ArgvParser::stringOption($parsed, 'lane', 'BACKLOG') ?? 'BACKLOG';
         $statusValue = ArgvParser::stringOption($parsed, 'status', '') ?? '';
@@ -339,13 +339,13 @@ final class CliApplication
             $dryRun,
         );
 
-        return $this->reportMutation($result, $format);
+        return $this->reportMutation($result, $output);
     }
 
     /**
      * @param ParsedArgs $parsed
      */
-    private function cardUpdate(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputFormat $format): int
+    private function cardUpdate(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $statusValue = ArgvParser::stringOption($parsed, 'status');
         $service = $this->mutationService($context);
@@ -366,13 +366,13 @@ final class CliApplication
             dryRun: $dryRun,
         );
 
-        return $this->reportMutation($result, $format);
+        return $this->reportMutation($result, $output);
     }
 
     /**
      * @param ParsedArgs $parsed
      */
-    private function cardMove(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputFormat $format): int
+    private function cardMove(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $to = ArgvParser::stringOption($parsed, 'to');
         if ($to === null) {
@@ -382,13 +382,13 @@ final class CliApplication
         $service = $this->mutationService($context);
         $result = $service->move($id, Lane::fromString($to), ArgvParser::stringOption($parsed, 'actor'), $expectedRevision, $dryRun);
 
-        return $this->reportMutation($result, $format);
+        return $this->reportMutation($result, $output);
     }
 
     /**
      * @param ParsedArgs $parsed
      */
-    private function cardClaim(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputFormat $format): int
+    private function cardClaim(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $actor = ArgvParser::stringOption($parsed, 'by');
         if ($actor === null) {
@@ -408,13 +408,13 @@ final class CliApplication
             $dryRun,
         );
 
-        return $this->reportMutation($result, $format);
+        return $this->reportMutation($result, $output);
     }
 
     /**
      * @param ParsedArgs $parsed
      */
-    private function cardRelease(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputFormat $format): int
+    private function cardRelease(BoardContext $context, CardId $id, array $parsed, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $actor = ArgvParser::stringOption($parsed, 'by');
         if ($actor === null) {
@@ -424,29 +424,29 @@ final class CliApplication
         $service = $this->mutationService($context);
         $result = $service->release($id, $actor, $expectedRevision, $dryRun);
 
-        return $this->reportMutation($result, $format);
+        return $this->reportMutation($result, $output);
     }
 
-    private function cardArchive(BoardContext $context, CardId $id, ?CardRevision $expectedRevision, bool $dryRun, OutputFormat $format): int
+    private function cardArchive(BoardContext $context, CardId $id, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $service = $this->mutationService($context);
         $result = $service->archive($id, $expectedRevision, $dryRun);
 
-        return $this->reportMutation($result, $format);
+        return $this->reportMutation($result, $output);
     }
 
-    private function cardRestore(BoardContext $context, CardId $id, ?CardRevision $expectedRevision, bool $dryRun, OutputFormat $format): int
+    private function cardRestore(BoardContext $context, CardId $id, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $service = $this->mutationService($context);
         $result = $service->restore($id, $expectedRevision, $dryRun);
 
-        return $this->reportMutation($result, $format);
+        return $this->reportMutation($result, $output);
     }
 
     /**
      * @param ParsedArgs $parsed
      */
-    private function cmdExternalSync(BoardContext $context, array $parsed, OutputFormat $format): int
+    private function cmdExternalSync(BoardContext $context, array $parsed, OutputOptions $output): int
     {
         $providerClass = ArgvParser::stringOption($parsed, 'provider-class');
         if ($providerClass === null) {
@@ -474,7 +474,7 @@ final class CliApplication
         $board = $this->loadBoard($context);
         $drift = (new ExternalIssueComparator())->compare($board->cards, $issues, $context->config, $provider->systemName());
 
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             $entries = array_map(static fn ($entry): array => $entry->toArray(), $drift->entries);
             echo (new JsonBoardRenderer())->encode([
                 'schemaVersion' => JsonBoardRenderer::SCHEMA_VERSION,
@@ -483,7 +483,7 @@ final class CliApplication
                 'system'        => $provider->systemName(),
                 'count'         => count($entries),
                 'entries'       => $entries,
-            ]);
+            ], $output->compact);
 
             return self::EXIT_OK;
         }
@@ -553,13 +553,13 @@ final class CliApplication
         return new CardMutationService($context->rootPath, $context->config, $context->repository);
     }
 
-    private function reportMutation(MutationResult $result, OutputFormat $format): int
+    private function reportMutation(MutationResult $result, OutputOptions $output): int
     {
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             echo (new JsonBoardRenderer())->encode(array_merge(
                 ['schemaVersion' => JsonBoardRenderer::SCHEMA_VERSION, 'type' => 'mutation-result', 'generatedAt' => (new DateTimeImmutable())->format('Y-m-d\TH:i:sP')],
                 $result->toArray(),
-            ));
+            ), $output->compact);
 
             return self::EXIT_OK;
         }
@@ -614,7 +614,7 @@ final class CliApplication
         return $lanes;
     }
 
-    private function reportError(AgentKanbanException $exception, OutputFormat $format): int
+    private function reportError(AgentKanbanException $exception, OutputOptions $output): int
     {
         $exitCode = match (true) {
             $exception instanceof NotFoundException           => self::EXIT_NOT_FOUND,
@@ -624,7 +624,7 @@ final class CliApplication
             default                                             => self::EXIT_USAGE_ERROR,
         };
 
-        if ($format === OutputFormat::Json) {
+        if ($output->isJson()) {
             echo (new JsonBoardRenderer())->encode(array_merge(
                 [
                     'schemaVersion' => JsonBoardRenderer::SCHEMA_VERSION,
@@ -634,7 +634,7 @@ final class CliApplication
                     'message'       => $this->sanitizeForOutput($exception->getMessage()),
                 ],
                 $this->exceptionContext($exception),
-            ));
+            ), $output->compact);
 
             return $exitCode;
         }
@@ -695,6 +695,12 @@ final class CliApplication
 
             Render filters:
               --lanes=A,B  --domain=  --assignee=  --status=  --search=  --limit=N
+
+            JSON output size (render, lane, next-pull, card show):
+              --fields=a,b,c                Emit only these card fields ("id" is
+                                            always included). Requires --format=json.
+              --compact                     Drop pretty-print whitespace.
+                                            Requires --format=json.
 
             Global options:
               --format=text|markdown|json   Output format (default: text).

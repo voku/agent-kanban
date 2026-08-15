@@ -42,4 +42,30 @@ final class ArgvParserTest extends TestCase
 
         self::assertTrue(ArgvParser::boolOption($parsed, 'dry-run'));
     }
+
+    public function testCompactIsABooleanFlag(): void
+    {
+        $parsed = ArgvParser::parse(['render', '--format=json', '--compact']);
+
+        self::assertTrue(ArgvParser::boolOption($parsed, 'compact'));
+    }
+
+    public function testCompactRejectsAValue(): void
+    {
+        $this->expectException(ValidationException::class);
+        ArgvParser::parse(['render', '--format=json', '--compact=true']);
+    }
+
+    public function testFieldsRequiresAValue(): void
+    {
+        $this->expectException(ValidationException::class);
+        ArgvParser::parse(['render', '--format=json', '--fields']);
+    }
+
+    public function testFieldsCarriesItsCommaSeparatedValue(): void
+    {
+        $parsed = ArgvParser::parse(['render', '--format=json', '--fields=id,lane']);
+
+        self::assertSame('id,lane', ArgvParser::stringOption($parsed, 'fields'));
+    }
 }

@@ -40,6 +40,61 @@ class itself contains no board logic.
 assignee, and summary. `--limit` caps how many cards are shown per lane
 (`0` or omitted = no limit).
 
+## Keeping JSON output small
+
+A full `card` object carries every field a card file can hold, including the
+unbounded `taskBrief` and `handoffNotes` prose and the 64-character `revision`
+digest. When the reader is a language model rather than a human — the
+`voku/agent-loop` case — that is the dominant cost of every board listing, and
+most of it is never read.
+
+Two options reduce it. Both apply to the commands that emit card objects
+(`render`, `lane`, `next-pull`, `card show`) and both require `--format=json`;
+`--compact` additionally applies to every other JSON shape, including
+`summary`, `verify`, mutation results, and errors.
+
+| Option | Effect |
+| --- | --- |
+| `--fields=a,b,c` | Emit only these card fields. |
+| `--compact` | Emit the JSON without pretty-print indentation and newlines. |
+
+```bash
+vendor/bin/agent-kanban next-pull --format=json --fields=lane,status,priority --compact
+```
+
+```json
+{"schemaVersion":1,"type":"card-list","generatedAt":"2026-07-12T09:00:00+00:00","count":2,"cards":[{"id":"ITPNG-123","lane":"READY","status":"Selected","priority":1},{"id":"ITPNG-124","lane":"READY","status":"Selected","priority":2}]}
+```
+
+Guarantees that make the reduced output safe to parse with the same code as
+the full output:
+
+- the envelope is unchanged — `schemaVersion`, `type`, `generatedAt`, and
+  `count` are always present, and `schemaVersion` does **not** change, because
+  the shape is a documented subset rather than a new shape;
+- `id` is always emitted, whether or not you name it — a card object that
+  cannot be tied back to a card is not a cheaper answer;
+- fields come back in the canonical order from `docs/json-format.md`, not in
+  the order you requested them;
+- `--compact` changes only insignificant whitespace, never the data or the
+  escaping.
+
+Valid field names are exactly the keys of the `card` object:
+
+```text
+id  title  lane  status  domain  assignee  createdAt  updatedAt  summary
+nextAction  validation  priority  wave  taskBrief  handoffNotes  claim
+externalIssue  formatVersion  extensionFields  revision  sourceFile
+```
+
+Field selection is strict in the same way the rest of the option parsing is:
+an unknown name (`--fields=brief`), a repeated name (`--fields=id,id`), an
+empty entry (`--fields=id,,lane`), or a wrong case (`--fields=Lane`) is
+rejected with exit code `1` rather than silently dropped — a silently ignored
+field name would hand back a card object missing data you believe you asked
+for. Using either option without `--format=json` is likewise rejected instead
+of ignored.
+
 ## Option parsing is strict
 
 `ArgvParser` rejects, rather than silently ignoring or defaulting:
@@ -65,6 +120,7 @@ trace.
 | Option | Effect |
 | --- | --- |
 | `--format=text\|markdown\|json` | Output format. Default `text`. `markdown` and `text` currently render the same Markdown output; `json` is versioned (see `docs/json-format.md`). |
+| `--compact` | Drop pretty-print whitespace from JSON output. Requires `--format=json`. See "Keeping JSON output small". |
 | `--dry-run` | For any `card` mutation command: validate and compute the result, but never write. |
 | `--expected-revision=<sha256>` | Optimistic-concurrency check; the command fails with a conflict if the card's current revision does not match. |
 | `--root=<path>` | Board root directory. Default: current working directory. |
@@ -99,4 +155,5 @@ vendor/bin/agent-kanban card claim ITPNG-123 --by=codex --move-to-doing
 vendor/bin/agent-kanban card update ITPNG-123 --summary="Narrower scope" --dry-run
 vendor/bin/agent-kanban card move ITPNG-123 --to=VERIFY --expected-revision=3f2504e...
 vendor/bin/agent-kanban render --lanes=READY,DOING --search=security --format=json
+vendor/bin/agent-kanban next-pull --format=json --fields=lane,status,priority --compact
 ```

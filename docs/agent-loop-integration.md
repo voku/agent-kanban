@@ -130,6 +130,51 @@ Mutation methods may throw:
 surface, retry after rereading, abandon the claim or require an explicit human
 decision. `agent-kanban` deliberately does not own session retry policy.
 
+## Reading a board without spending the context window
+
+An orchestrator reads the board far more often than it writes to it, and a
+full card object is mostly prose it does not need in order to decide what to
+work on next: `taskBrief` and `handoffNotes` are unbounded, and `revision` is
+64 characters. Multiplied by every card in every listing, that is usually the
+largest single input an `agent-loop` session feeds to a model.
+
+Both the CLI and the typed API can emit a reduced card object instead.
+
+```bash
+vendor/bin/agent-kanban next-pull --format=json --fields=lane,status,priority --compact
+```
+
+```php
+use voku\AgentKanban\Rendering\CardFieldSelection;
+use voku\AgentKanban\Rendering\JsonBoardRenderer;
+
+$renderer = new JsonBoardRenderer();
+$selection = CardFieldSelection::fromString('lane,status,priority');
+
+echo $renderer->encode(
+    $renderer->cardsToEnvelope($candidates, $selection),
+    compact: true,
+);
+```
+
+The reduced document is a subset of the documented `card` shape, not a new
+one: same `schemaVersion`, same envelope, same key order, and `id` is always
+present. See `docs/json-format.md` for the exact contract.
+
+Suggested split, given that a session usually needs breadth first and depth
+only for the one card it actually picks up:
+
+| Step | Call |
+| --- | --- |
+| Rank candidates | `next-pull --format=json --fields=lane,status,priority,summary --compact` |
+| Survey a lane | `lane DOING --format=json --fields=status,assignee,claim --compact` |
+| Read the card it claimed | `card show <ID> --format=json` (full object, one card) |
+
+`agent-kanban` deliberately does not decide which fields an orchestrator
+needs, or cache anything on its behalf. It only makes the narrower request
+expressible, and rejects a field selection it cannot honor rather than
+silently returning less than was asked for.
+
 ## Board reference in a governed run
 
 The cross-package run manifest belongs to `agent-loop`. A board reference should
@@ -187,7 +232,8 @@ The following package-local tests define behavior an orchestrator may rely on:
   semantics;
 - `tests/Verification/BoardVerifierTest.php` for structured violations;
 - `tests/Transition/TransitionPolicyTest.php` for transition policy;
-- `tests/Rendering/JsonBoardRendererTest.php` for the versioned JSON envelope.
+- `tests/Rendering/JsonBoardRendererTest.php` for the versioned JSON envelope;
+- `tests/Rendering/CardFieldSelectionTest.php` for reduced card objects.
 
 When `agent-loop` needs a new board behavior, first add or identify an owning
 package fixture. The installed release-set smoke then proves the complete
