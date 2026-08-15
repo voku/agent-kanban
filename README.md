@@ -117,6 +117,24 @@ vendor/bin/agent-kanban card release ITPNG-123 --by=codex
 
 Full command reference, options, and exit codes: `docs/cli.md`.
 
+### Small JSON for coding agents
+
+A full card object carries every field a card file holds, including the
+unbounded task brief. When the reader is a language model, `--fields=` and
+`--compact` cut a board listing down to what the caller actually reads:
+
+```bash
+vendor/bin/agent-kanban next-pull --format=json --fields=lane,status,priority --compact
+```
+
+```json
+{"schemaVersion":1,"type":"card-list","generatedAt":"2026-07-12T09:00:00+00:00","count":1,"cards":[{"id":"ITPNG-123","lane":"READY","status":"Selected","priority":1}]}
+```
+
+The reduced document is a documented subset of the same `card` shape — same
+`schemaVersion`, same envelope, same key order, `id` always present — so one
+parser handles both. See `docs/cli.md` and `docs/json-format.md`.
+
 ## Basic PHP usage
 
 ```php

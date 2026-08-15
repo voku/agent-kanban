@@ -47,9 +47,21 @@ final class JsonBoardRenderer
 {
     public const int SCHEMA_VERSION = 1;
 
-    public function encode(mixed $data): string
+    /**
+     * @param bool $compact Drop the pretty-printer's indentation and newlines.
+     *                      The document is byte-for-byte the same data; only
+     *                      the insignificant whitespace goes away, which is
+     *                      pure overhead when the reader is a language model
+     *                      rather than a human.
+     */
+    public function encode(mixed $data, bool $compact = false): string
     {
-        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $flags = JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR;
+        if (!$compact) {
+            $flags |= JSON_PRETTY_PRINT;
+        }
+
+        $json = json_encode($data, $flags);
 
         return $json . "\n";
     }
@@ -74,38 +86,62 @@ final class JsonBoardRenderer
     }
 
     /**
-     * @return array{schemaVersion: int, type: string, generatedAt: string, card: CardArray}
+     * @param CardFieldSelection|null $fields Null emits the complete card object.
+     *
+     * @return ($fields is null
+     *     ? array{schemaVersion: int, type: string, generatedAt: string, card: CardArray}
+     *     : array{schemaVersion: int, type: string, generatedAt: string, card: array<string, mixed>})
      */
-    public function cardToEnvelope(Card $card): array
+    public function cardToEnvelope(Card $card, ?CardFieldSelection $fields = null): array
     {
         return [
             'schemaVersion' => self::SCHEMA_VERSION,
             'type'          => 'card',
             'generatedAt'   => $this->now(),
-            'card'          => $this->cardToArray($card),
+            'card'          => $this->cardToArray($card, $fields),
         ];
     }
 
     /**
      * @param list<Card> $cards
+     * @param CardFieldSelection|null $fields Null emits complete card objects.
      *
-     * @return array{schemaVersion: int, type: string, generatedAt: string, count: int, cards: list<CardArray>}
+     * @return ($fields is null
+     *     ? array{schemaVersion: int, type: string, generatedAt: string, count: int, cards: list<CardArray>}
+     *     : array{schemaVersion: int, type: string, generatedAt: string, count: int, cards: list<array<string, mixed>>})
      */
-    public function cardsToEnvelope(array $cards): array
+    public function cardsToEnvelope(array $cards, ?CardFieldSelection $fields = null): array
     {
         return [
             'schemaVersion' => self::SCHEMA_VERSION,
             'type'          => 'card-list',
             'generatedAt'   => $this->now(),
             'count'         => count($cards),
-            'cards'         => array_map($this->cardToArray(...), $cards),
+            'cards'         => array_map(
+                fn (Card $card): array => $this->cardToArray($card, $fields),
+                $cards,
+            ),
         ];
+    }
+
+    /**
+     * @param CardFieldSelection|null $fields Null emits the complete card
+     *                                        object; a selection emits the
+     *                                        named subset, in the same order.
+     *
+     * @return ($fields is null ? CardArray : array<string, mixed>)
+     */
+    public function cardToArray(Card $card, ?CardFieldSelection $fields = null): array
+    {
+        $full = $this->fullCardToArray($card);
+
+        return $fields === null ? $full : $fields->apply($full);
     }
 
     /**
      * @return CardArray
      */
-    public function cardToArray(Card $card): array
+    private function fullCardToArray(Card $card): array
     {
         return [
             'id'              => $card->id->toString(),

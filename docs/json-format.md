@@ -87,6 +87,42 @@ credentials of any kind.
 `domain`, `assignee`, `claim`, and `externalIssue` are `null` when unset —
 never an empty string or an omitted key.
 
+### Reduced card objects (`--fields=`)
+
+`agent-kanban render|lane|next-pull|card show --format=json --fields=a,b,c`
+emits the same `card` shape with only the named keys. This is a **subset of
+the shape above, not a new shape**: `schemaVersion` is unchanged, the envelope
+(`type`, `generatedAt`, `count`) is unchanged, and the keys keep the canonical
+order used above.
+
+```json
+{
+  "schemaVersion": 1,
+  "type": "card",
+  "generatedAt": "2026-07-12T09:00:00+00:00",
+  "card": { "id": "ITPNG-123", "lane": "READY", "priority": 1 }
+}
+```
+
+`id` is always present, whether or not it was named. Every other key is
+present if and only if it was named, and carries exactly the value it would
+carry in the full object — a projected `claim` is still `null` when unset, not
+omitted.
+
+A consumer that reads a projected document with the parser it uses for the
+full document must therefore treat card keys as *possibly absent*, and must
+not infer "field unset" from "key missing" unless it knows which selection it
+asked for. Consumers that never pass `--fields` are unaffected.
+
+The complementary `--compact` flag (valid for every shape on this page, not
+only card objects) removes the pretty-printer's indentation and internal line
+breaks. Every document still ends with a single trailing newline, so
+line-oriented readers keep working. It changes no data, no key order, and no
+escaping — only insignificant whitespace. Both
+options exist so an orchestrator like `voku/agent-loop` can read a board
+without paying for prose it will not use; see `docs/cli.md` for the full
+option reference.
+
 ### `card-list`
 
 ```json

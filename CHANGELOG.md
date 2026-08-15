@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- `--fields=<a,b,c>` for the commands that emit card objects (`render`,
+  `lane`, `next-pull`, `card show`): emit only the named card fields instead
+  of the complete card object. Cuts the dominant cost of feeding board JSON to
+  a coding agent, which is the unbounded `taskBrief`/`handoffNotes` prose and
+  the 64-character `revision` digest repeated for every card.
+- `--compact` (any command, `--format=json` only): emit JSON without
+  pretty-print indentation and newlines.
+- `Rendering\CardFieldSelection`, and optional `CardFieldSelection`/`compact`
+  arguments on `JsonBoardRenderer::cardToArray()`, `cardToEnvelope()`,
+  `cardsToEnvelope()` and `encode()`, so the same reduction is available to
+  PHP callers.
+- `Cli\OutputOptions`, the typed value object carrying a command's format,
+  compact flag and field selection.
+
+Both options are additive. `schemaVersion` is unchanged: a reduced card object
+is a documented subset of the existing `card` shape — same envelope, same
+canonical key order — not a new shape. Output for callers that pass neither
+option is byte-for-byte unchanged. `id` is always emitted, whether or not it
+was named. Both options are rejected with exit code `1` when used without
+`--format=json`, as is an unknown, repeated or empty field name, rather than
+being silently ignored.
+
+See `docs/cli.md` ("Keeping JSON output small"), `docs/json-format.md`
+("Reduced card objects") and `docs/agent-loop-integration.md` ("Reading a
+board without spending the context window").
+
+### Fixed
+
+- A malformed option token (`--fields`, `--fields=`, `--limit`, `--bogus=1`,
+  `--compact=yes`, a repeated option, ...) escaped the CLI as an uncaught
+  exception: a raw stack trace on STDERR and exit code `255`, instead of the
+  documented `ValidationException` behavior of a clean message and exit code
+  `1`. `ArgvParser::parse()` ran outside `CliApplication::run()`'s error
+  boundary; it now runs inside it, and `--format=json` is honored for these
+  errors too, so a JSON-only consumer gets a JSON `error` document rather than
+  a stack trace. Present since 0.2.0 and not specific to the new options.
+
 ## 0.2.1 - 2026-07-13
 
 - Handle additional case for empty priority in CardParser

@@ -281,6 +281,256 @@ final class CliApplicationTest extends TestCase
         }
     }
 
+    public function testFieldsProjectsCardListsDownToTheNamedFields(): void
+    {
+        $root = $this->boardWithBriefs();
+
+        $result = $this->runCli(['render', '--format=json', '--fields=lane,priority'], $root);
+
+        self::assertSame(0, $result['exitCode']);
+        $decoded = json_decode($result['stdout'], true);
+        self::assertIsArray($decoded);
+        self::assertSame('card-list', $decoded['type']);
+        $cards = $decoded['cards'];
+        self::assertIsArray($cards);
+        self::assertNotSame([], $cards);
+
+        foreach ($cards as $card) {
+            self::assertIsArray($card);
+            self::assertSame(['id', 'lane', 'priority'], array_keys($card));
+        }
+
+        self::assertStringNotContainsString('unbounded brief prose', $result['stdout']);
+    }
+
+    public function testFieldsWorksForLaneNextPullAndCardShow(): void
+    {
+        $root = $this->boardWithBriefs();
+
+        foreach ([['lane', 'READY'], ['next-pull'], ['card', 'show', 'ABC-1']] as $command) {
+            $args = array_merge($command, ['--format=json', '--fields=lane']);
+            $result = $this->runCli($args, $root);
+
+            self::assertSame(0, $result['exitCode'], implode(' ', $command));
+            $decoded = json_decode($result['stdout'], true);
+            self::assertIsArray($decoded);
+
+            if (array_key_exists('card', $decoded)) {
+                $card = $decoded['card'];
+            } else {
+                $cards = $decoded['cards'];
+                self::assertIsArray($cards);
+                $card = $cards[0];
+            }
+
+            self::assertIsArray($card);
+            self::assertSame(['id', 'lane'], array_keys($card), implode(' ', $command));
+        }
+    }
+
+    public function testFieldsKeepsTheEnvelopeAndSchemaVersionIntact(): void
+    {
+        $root = $this->boardWithBriefs();
+
+        $result = $this->runCli(['card', 'show', 'ABC-1', '--format=json', '--fields=status'], $root);
+
+        $decoded = json_decode($result['stdout'], true);
+        self::assertIsArray($decoded);
+        self::assertSame(1, $decoded['schemaVersion']);
+        self::assertSame('card', $decoded['type']);
+        self::assertArrayHasKey('generatedAt', $decoded);
+    }
+
+    public function testCompactEmitsTheSameDocumentWithoutPrettyWhitespace(): void
+    {
+        $root = $this->boardWithBriefs();
+
+        $pretty = $this->runCli(['summary', '--format=json'], $root);
+        $compact = $this->runCli(['summary', '--format=json', '--compact'], $root);
+
+        self::assertSame(0, $compact['exitCode']);
+        self::assertStringNotContainsString("\n    ", $compact['stdout']);
+        self::assertLessThan(strlen($pretty['stdout']), strlen($compact['stdout']));
+
+        $prettyDecoded = json_decode($pretty['stdout'], true);
+        $compactDecoded = json_decode($compact['stdout'], true);
+        self::assertIsArray($prettyDecoded);
+        self::assertIsArray($compactDecoded);
+        unset($prettyDecoded['generatedAt'], $compactDecoded['generatedAt']);
+        self::assertSame($prettyDecoded, $compactDecoded);
+    }
+
+    public function testCompactAppliesToEveryJsonShapeIncludingErrors(): void
+    {
+        $root = $this->boardWithBriefs();
+
+        $result = $this->runCli(['card', 'show', 'ABC-404', '--format=json', '--compact'], $root);
+
+        self::assertSame(2, $result['exitCode']);
+        self::assertStringNotContainsString("\n    ", $result['stdout']);
+        $decoded = json_decode($result['stdout'], true);
+        self::assertIsArray($decoded);
+        self::assertSame('error', $decoded['type']);
+    }
+
+    public function testCombinedFieldsAndCompactCollapseABoardListingDramatically(): void
+    {
+        // The whole point of both options: an orchestrator that only ranks
+        // work should not pay for every card's full task brief.
+        $root = $this->boardWithBriefs();
+
+        $full = $this->runCli(['render', '--format=json'], $root);
+        $reduced = $this->runCli(['render', '--format=json', '--fields=lane,priority', '--compact'], $root);
+
+        self::assertSame(0, $reduced['exitCode']);
+        self::assertLessThan(strlen($full['stdout']) / 10, strlen($reduced['stdout']));
+    }
+
+    public function testFieldsAndCompactAreRejectedWithoutJsonFormat(): void
+    {
+        $root = $this->boardWithBriefs();
+
+        $fields = $this->runCli(['render', '--fields=lane'], $root);
+        self::assertSame(1, $fields['exitCode']);
+        self::assertStringContainsString('--fields requires --format=json', $fields['stderr']);
+
+        $compact = $this->runCli(['render', '--compact'], $root);
+        self::assertSame(1, $compact['exitCode']);
+        self::assertStringContainsString('--compact requires --format=json', $compact['stderr']);
+    }
+
+    public function testUnknownFieldNameIsRejectedRatherThanIgnored(): void
+    {
+        $result = $this->runCli(['render', '--format=json', '--fields=lane,nope'], $this->boardWithBriefs());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringContainsString('Unknown card field', $result['stdout'] . $result['stderr']);
+    }
+
+    public function testABadFieldsValueIsStillReportedAsJsonWhenJsonWasRequested(): void
+    {
+        // The caller asked for JSON precisely because it cannot read prose;
+        // failing on the option it used to ask for smaller JSON must not
+        // hand it back a plain-text error.
+        $result = $this->runCli(['render', '--format=json', '--fields=nope'], $this->boardWithBriefs());
+
+        self::assertSame(1, $result['exitCode']);
+        $decoded = json_decode($result['stdout'], true);
+        self::assertIsArray($decoded);
+        self::assertSame('error', $decoded['type']);
+        self::assertSame(1, $decoded['schemaVersion']);
+        self::assertSame('ValidationException', $decoded['exception']);
+        $message = $decoded['message'];
+        self::assertIsString($message);
+        self::assertStringContainsString('Unknown card field', $message);
+    }
+
+    public function testABadFieldsValueHonoursCompactForItsJsonError(): void
+    {
+        $result = $this->runCli(['render', '--format=json', '--compact', '--fields=nope'], $this->boardWithBriefs());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringNotContainsString("\n    ", $result['stdout']);
+        self::assertIsArray(json_decode($result['stdout'], true));
+    }
+
+    public function testAnInvalidFormatStillFallsBackToATextError(): void
+    {
+        $result = $this->runCli(['render', '--format=yaml', '--fields=lane'], $this->boardWithBriefs());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringContainsString('Invalid --format', $result['stderr']);
+    }
+
+    /** @return iterable<string, array{list<string>}> */
+    public static function malformedOptionProvider(): iterable
+    {
+        yield 'empty --fields value' => [['render', '--fields=']];
+        yield 'valueless --fields' => [['render', '--fields']];
+        yield 'valueless --limit' => [['render', '--limit']];
+        yield 'unknown option' => [['render', '--bogus=1']];
+        yield 'value on a boolean flag' => [['render', '--compact=yes']];
+        yield 'duplicate option' => [['render', '--limit=1', '--limit=2']];
+    }
+
+    /**
+     * A token the parser rejects must be reported like any other validation
+     * error — exit code 1, no raw stack trace — rather than escaping as an
+     * uncaught fatal.
+     *
+     * @param list<string> $args
+     */
+    #[DataProvider('malformedOptionProvider')]
+    public function testMalformedOptionsAreReportedNotFatal(array $args): void
+    {
+        $result = $this->runCli($args, $this->emptyBoard());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringNotContainsString('Fatal error', $result['stderr']);
+        self::assertStringNotContainsString('Stack trace', $result['stderr']);
+        self::assertStringContainsString('ERROR: ', $result['stderr']);
+    }
+
+    /**
+     * @param list<string> $args
+     */
+    #[DataProvider('malformedOptionProvider')]
+    public function testMalformedOptionsAreReportedAsJsonWhenJsonWasRequested(array $args): void
+    {
+        $args[] = '--format=json';
+        $result = $this->runCli($args, $this->emptyBoard());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringNotContainsString('Fatal error', $result['stderr']);
+
+        $decoded = json_decode($result['stdout'], true);
+        self::assertIsArray($decoded);
+        self::assertSame('error', $decoded['type']);
+        self::assertSame(1, $decoded['schemaVersion']);
+    }
+
+    public function testAMalformedOptionStillHonoursCompactForItsJsonError(): void
+    {
+        $result = $this->runCli(['render', '--format=json', '--compact', '--fields='], $this->emptyBoard());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringNotContainsString("\n    ", $result['stdout']);
+        self::assertIsArray(json_decode($result['stdout'], true));
+    }
+
+    public function testFieldsIsRejectedForCommandsWithoutCardOutput(): void
+    {
+        $result = $this->runCli(['summary', '--format=json', '--fields=lane'], $this->boardWithBriefs());
+
+        self::assertSame(1, $result['exitCode']);
+        self::assertStringContainsString('Option --fields is not valid for', $result['stdout'] . $result['stderr']);
+        self::assertStringContainsString('summary', $result['stdout'] . $result['stderr']);
+    }
+
+    /**
+     * A board whose cards carry long task briefs — the field that dominates
+     * full-card JSON output.
+     */
+    private function boardWithBriefs(): string
+    {
+        $root = $this->emptyBoard();
+
+        foreach ([1, 2, 3] as $index) {
+            file_put_contents(
+                $root . '/todo/cards/ABC-' . $index . '.md',
+                "# ABC-{$index}: Card {$index}\n\n"
+                . "- **Ticket:** ABC-{$index}\n"
+                . "- **Lane:** READY\n"
+                . "- **Status:** Selected\n"
+                . "- **Priority:** {$index}\n\n"
+                . "## Agent Task Brief\n"
+                . str_repeat('unbounded brief prose that an orchestrator does not need while ranking work. ', 40) . "\n",
+            );
+        }
+
+        return $root;
+    }
+
     /**
      * @param list<string> $args
      * @param array<string, string> $extraEnv
