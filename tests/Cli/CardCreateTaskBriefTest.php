@@ -32,7 +32,7 @@ final class CardCreateTaskBriefTest extends TestCase
 
     public function testCreateCanAtomicallyProduceVerifierValidReadyCardWithTaskBrief(): void
     {
-        $create = $this->run([
+        $create = $this->runCli([
             'agent-kanban',
             'card',
             'create',
@@ -51,14 +51,14 @@ final class CardCreateTaskBriefTest extends TestCase
             (string) file_get_contents($this->root . '/todo/cards/TEST-1.md'),
         );
 
-        $verify = $this->run(['agent-kanban', 'verify']);
+        $verify = $this->runCli(['agent-kanban', 'verify']);
         self::assertSame(CliApplication::EXIT_OK, $verify['exit'], $verify['output']);
         self::assertStringContainsString('Board verification passed.', $verify['output']);
     }
 
     public function testCreateWithoutBriefKeepsExistingEmptyDefaultOutsideRequiredLane(): void
     {
-        $create = $this->run([
+        $create = $this->runCli([
             'agent-kanban',
             'card',
             'create',
@@ -69,7 +69,7 @@ final class CardCreateTaskBriefTest extends TestCase
 
         self::assertSame(CliApplication::EXIT_OK, $create['exit'], $create['output']);
 
-        $show = $this->run([
+        $show = $this->runCli([
             'agent-kanban',
             'card',
             'show',
@@ -85,7 +85,7 @@ final class CardCreateTaskBriefTest extends TestCase
      * @param list<string> $argv
      * @return array{exit: int, output: string}
      */
-    private function run(array $argv): array
+    private function runCli(array $argv): array
     {
         ob_start();
         $exit = (new CliApplication($this->root))->run($argv);
