@@ -11,6 +11,7 @@ enum OutputFormat: string
     case Text = 'text';
     case Markdown = 'markdown';
     case Json = 'json';
+    case Toon = 'toon';
 
     public static function fromString(?string $value): self
     {
@@ -19,7 +20,7 @@ enum OutputFormat: string
         }
 
         return self::tryFrom($value) ?? throw new ValidationException(
-            sprintf('Invalid --format "%s": expected text, markdown, or json.', $value),
+            sprintf('Invalid --format "%s": expected text, markdown, json, or toon.', $value),
             field: 'format',
         );
     }
