@@ -10,6 +10,7 @@ use voku\AgentKanban\Config\BoardConfig;
 use voku\AgentKanban\Domain\CardId;
 use voku\AgentKanban\Domain\CardRevision;
 use voku\AgentKanban\Domain\CardStatus;
+use voku\AgentKanban\Domain\Claim;
 use voku\AgentKanban\Domain\Lane;
 use voku\AgentKanban\Exception\ConfigurationException;
 use voku\AgentKanban\Exception\ConflictException;
@@ -55,6 +56,40 @@ final class CardMutationServiceTest extends TestCase
 
         $this->expectException(ConflictException::class);
         $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T2');
+    }
+
+    public function testCreateRejectsLaneInvalidCardBeforeWriting(): void
+    {
+        $root = $this->tempBoard();
+        $service = $this->service($root);
+
+        try {
+            $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+            self::fail('Expected ValidationException.');
+        } catch (ValidationException $exception) {
+            self::assertSame('ABC-1', $exception->cardId);
+            self::assertSame('taskBrief', $exception->field);
+        }
+
+        self::assertFileDoesNotExist($root . '/todo/cards/ABC-1.md');
+    }
+
+    public function testMoveRejectsLaneInvalidCardBeforeWriting(): void
+    {
+        $root = $this->tempBoard();
+        $service = $this->service($root);
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T');
+        $before = $this->readFile($root . '/todo/cards/ABC-1.md');
+
+        try {
+            $service->move(CardId::fromString('ABC-1'), Lane::fromString('READY'));
+            self::fail('Expected ValidationException.');
+        } catch (ValidationException $exception) {
+            self::assertSame('ABC-1', $exception->cardId);
+            self::assertSame('taskBrief', $exception->field);
+        }
+
+        self::assertSame($before, $this->readFile($root . '/todo/cards/ABC-1.md'));
     }
 
     public function testDryRunNeverWrites(): void
@@ -124,7 +159,13 @@ final class CardMutationServiceTest extends TestCase
     {
         $root = $this->tempBoard();
         $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T');
+        $service->create(
+            CardId::fromString('ABC-1'),
+            Lane::fromString('BACKLOG'),
+            CardStatus::fromString(''),
+            'T',
+            taskBrief: 'Brief',
+        );
 
         $result = $service->move(CardId::fromString('ABC-1'), Lane::fromString('READY'), actor: 'codex');
 
@@ -138,7 +179,7 @@ final class CardMutationServiceTest extends TestCase
     {
         $root = $this->tempBoard();
         $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
         $service->claim(CardId::fromString('ABC-1'), 'codex');
 
         $this->expectException(ConflictException::class);
@@ -149,7 +190,7 @@ final class CardMutationServiceTest extends TestCase
     {
         $root = $this->tempBoard();
         $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
         $service->claim(CardId::fromString('ABC-1'), 'codex');
 
         $result = $service->claim(CardId::fromString('ABC-1'), 'codex');
@@ -159,11 +200,25 @@ final class CardMutationServiceTest extends TestCase
     public function testExpiredClaimMayBeReplaced(): void
     {
         $root = $this->tempBoard();
-        $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
-        $service->claim(CardId::fromString('ABC-1'), 'codex', expiresAt: new \DateTimeImmutable('-1 hour'));
+        $config = BoardConfig::default('ABC');
+        $repository = new MarkdownCardRepository($root, $config);
+        $service = new CardMutationService($root, $config, $repository);
+        $id = CardId::fromString('ABC-1');
+        $service->create($id, Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
 
-        $result = $service->claim(CardId::fromString('ABC-1'), 'other-agent');
+        $card = $repository->load($id);
+        $expiredClaim = new Claim(
+            'codex',
+            new \DateTimeImmutable('-2 hours'),
+            new \DateTimeImmutable('-1 hour'),
+            $card->revision,
+        );
+        $claimedCard = $card->withClaim($expiredClaim);
+        $path = $repository->findExistingPath($id);
+        self::assertNotNull($path);
+        $repository->atomicWrite($path, $repository->serialize($claimedCard), $card->revision);
+
+        $result = $service->claim($id, 'other-agent');
         self::assertSame('other-agent', $result->card->claim?->actor);
     }
 
@@ -171,7 +226,7 @@ final class CardMutationServiceTest extends TestCase
     {
         $root = $this->tempBoard();
         $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
         $service->claim(CardId::fromString('ABC-1'), 'codex');
 
         $this->expectException(ConflictException::class);
@@ -182,7 +237,7 @@ final class CardMutationServiceTest extends TestCase
     {
         $root = $this->tempBoard();
         $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
 
         $this->expectException(ValidationException::class);
         $service->release(CardId::fromString('ABC-1'), 'codex');
@@ -192,7 +247,7 @@ final class CardMutationServiceTest extends TestCase
     {
         $root = $this->tempBoard();
         $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
 
         $result = $service->claim(CardId::fromString('ABC-1'), 'codex', moveToDoing: true);
 
@@ -204,7 +259,7 @@ final class CardMutationServiceTest extends TestCase
     {
         $root = $this->tempBoard();
         $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T');
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
 
         $result = $service->claim(CardId::fromString('ABC-1'), 'codex');
 

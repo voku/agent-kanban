@@ -189,7 +189,7 @@ final class CliApplicationTest extends TestCase
     {
         $root = $this->emptyBoard();
 
-        $create = $this->runCli(['card', 'create', 'ABC-1', '--title=New', '--lane=BACKLOG', '--summary=S'], $root);
+        $create = $this->runCli(['card', 'create', 'ABC-1', '--title=New', '--lane=BACKLOG', '--summary=S', '--brief=Brief'], $root);
         self::assertSame(0, $create['exitCode']);
         self::assertFileExists($root . '/todo/cards/ABC-1.md');
 
@@ -437,7 +437,6 @@ final class CliApplicationTest extends TestCase
     public function testAnInvalidFormatStillFallsBackToATextError(): void
     {
         $result = $this->runCli(['render', '--format=yaml', '--fields=lane'], $this->boardWithBriefs());
-
         self::assertSame(1, $result['exitCode']);
         self::assertStringContainsString('Invalid --format', $result['stderr']);
     }
