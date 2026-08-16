@@ -43,6 +43,7 @@ final class CardMutationService
         string $title,
         string $summary = '',
         bool $dryRun = false,
+        string $taskBrief = '',
     ): MutationResult {
         if (!$this->config->supportsLane($lane)) {
             throw new ValidationException(sprintf('Unsupported lane "%s".', $lane), field: 'lane', cardId: $id->toString());
@@ -65,7 +66,7 @@ final class CardMutationService
             validation: '',
             priority: null,
             wave: '',
-            taskBrief: '',
+            taskBrief: $taskBrief,
             handoffNotes: '',
             claim: null,
             externalIssue: null,

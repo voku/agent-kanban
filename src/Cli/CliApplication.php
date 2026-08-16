@@ -70,7 +70,7 @@ final class CliApplication
     /** @var array<string, list<string>> */
     private const array CARD_SUBCOMMAND_OPTIONS = [
         'show'    => ['fields'],
-        'create'  => ['title', 'lane', 'status', 'summary', 'dry-run'],
+        'create'  => ['title', 'lane', 'status', 'summary', 'brief', 'dry-run'],
         'update'  => [
             'title', 'status', 'domain', 'assignee', 'summary', 'next', 'validation',
             'priority', 'wave', 'brief', 'handoff', 'dry-run', 'expected-revision',
@@ -333,15 +333,17 @@ final class CliApplication
         $statusValue = ArgvParser::stringOption($parsed, 'status', '') ?? '';
         $title = ArgvParser::stringOption($parsed, 'title', '') ?? '';
         $summary = ArgvParser::stringOption($parsed, 'summary', '') ?? '';
+        $taskBrief = ArgvParser::stringOption($parsed, 'brief', '') ?? '';
 
         $service = $this->mutationService($context);
         $result = $service->create(
-            $id,
-            Lane::fromString($laneValue),
-            CardStatus::fromString($statusValue),
-            $title,
-            $summary,
-            $dryRun,
+            id: $id,
+            lane: Lane::fromString($laneValue),
+            status: CardStatus::fromString($statusValue),
+            title: $title,
+            summary: $summary,
+            dryRun: $dryRun,
+            taskBrief: $taskBrief,
         );
 
         return $this->reportMutation($result, $output);
@@ -687,7 +689,7 @@ final class CliApplication
               next-pull                           Cards with a configured pull priority, ranked.
               lane <LANE>                         Cards in one lane.
               card show <ID>                      Show one card.
-              card create <ID> --title=... [--lane=] [--status=] [--summary=]
+              card create <ID> --title=... [--lane=] [--status=] [--summary=] [--brief=]
               card update <ID> [--title=] [--status=] [--domain=] [--assignee=] [--summary=]
                                                    [--next=] [--validation=] [--priority=] [--wave=]
                                                    [--brief=] [--handoff=]

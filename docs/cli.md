@@ -20,7 +20,7 @@ class itself contains no board logic.
 | `next-pull` | Cards with a configured pull priority `> 0`, ranked ascending. |
 | `lane <LANE>` | Cards in one lane. |
 | `card show <ID>` | Show one card. |
-| `card create <ID> --title=... [--lane=] [--status=] [--summary=]` | Create a new card (defaults: lane `BACKLOG`, empty status). |
+| `card create <ID> --title=... [--lane=] [--status=] [--summary=] [--brief=]` | Create a new card (defaults: lane `BACKLOG`, empty status and task brief). Use `--brief` when creating directly into a lane that requires `taskBrief`. |
 | `card update <ID> [--title=] [--status=] [--domain=] [--assignee=] [--summary=] [--next=] [--validation=] [--priority=] [--wave=] [--brief=] [--handoff=]` | Update only the fields you pass. |
 | `card move <ID> --to=<LANE> [--actor=]` | Move a card; validated against `BoardConfig::$transitions`. |
 | `card claim <ID> --by=<actor> [--expires=<ISO8601>] [--move-to-doing]` | Claim a card. |
@@ -152,6 +152,7 @@ STDERR for anything that fails the build.
 
 ```bash
 vendor/bin/agent-kanban verify --format=json
+vendor/bin/agent-kanban card create ITPNG-123 --title="Ready task" --lane=READY --status=Selected --brief="Implement one verified behavior."
 vendor/bin/agent-kanban card claim ITPNG-123 --by=codex --move-to-doing
 vendor/bin/agent-kanban card update ITPNG-123 --summary="Narrower scope" --dry-run
 vendor/bin/agent-kanban card move ITPNG-123 --to=VERIFY --expected-revision=3f2504e...
