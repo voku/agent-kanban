@@ -32,8 +32,10 @@ final class ArgvParser
     {
         $positional = [];
         $options = [];
+        $count = count($tokens);
 
-        foreach ($tokens as $token) {
+        for ($index = 0; $index < $count; ++$index) {
+            $token = $tokens[$index];
             if (!str_starts_with($token, '--')) {
                 $positional[] = $token;
                 continue;
@@ -50,23 +52,32 @@ final class ArgvParser
                 throw new ValidationException(sprintf('Option --%s may only be supplied once.', $name));
             }
 
-            if ($separatorPosition === false) {
-                if (!in_array($name, self::BOOLEAN_OPTIONS, true)) {
-                    throw new ValidationException(sprintf('Option --%s requires a value using --%s=<value>.', $name, $name));
+            if ($separatorPosition !== false) {
+                if (in_array($name, self::BOOLEAN_OPTIONS, true)) {
+                    throw new ValidationException(sprintf('Boolean option --%s must not have a value.', $name));
                 }
-                $options[$name] = true;
+
+                $value = substr($withoutPrefix, $separatorPosition + 1);
+                if ($value === '') {
+                    throw new ValidationException(sprintf('Option --%s requires a non-empty value.', $name));
+                }
+                $options[$name] = $value;
+
                 continue;
             }
 
             if (in_array($name, self::BOOLEAN_OPTIONS, true)) {
-                throw new ValidationException(sprintf('Boolean option --%s must not have a value.', $name));
+                $options[$name] = true;
+                continue;
             }
 
-            $value = substr($withoutPrefix, $separatorPosition + 1);
-            if ($value === '') {
+            $value = $tokens[$index + 1] ?? null;
+            if (!is_string($value) || $value === '' || str_starts_with($value, '--')) {
                 throw new ValidationException(sprintf('Option --%s requires a non-empty value.', $name));
             }
+
             $options[$name] = $value;
+            ++$index;
         }
 
         return ['positional' => $positional, 'options' => $options];
