@@ -22,10 +22,39 @@ final class ArgvParserTest extends TestCase
         ArgvParser::parse(['render', '--limit=1', '--limit=2']);
     }
 
+    public function testRejectsDuplicateOptionAcrossEqualsAndSpacedForms(): void
+    {
+        $this->expectException(ValidationException::class);
+        ArgvParser::parse(['render', '--limit=1', '--limit', '2']);
+    }
+
     public function testRejectsMissingValue(): void
     {
         $this->expectException(ValidationException::class);
         ArgvParser::parse(['render', '--limit']);
+    }
+
+    public function testRejectsMissingValueBeforeAnotherOption(): void
+    {
+        $this->expectException(ValidationException::class);
+        ArgvParser::parse(['render', '--limit', '--compact']);
+    }
+
+    public function testAcceptsEqualsAndSpacedValueForms(): void
+    {
+        $equals = ArgvParser::parse(['card', 'claim', 'ABC-1', '--by=Claude', '--move-to-doing']);
+        $spaced = ArgvParser::parse(['card', 'claim', 'ABC-1', '--by', 'Claude', '--move-to-doing']);
+
+        self::assertSame($equals, $spaced);
+        self::assertSame('Claude', ArgvParser::stringOption($spaced, 'by'));
+        self::assertTrue(ArgvParser::boolOption($spaced, 'move-to-doing'));
+    }
+
+    public function testAcceptsNegativeIntegerAsSpacedValue(): void
+    {
+        $parsed = ArgvParser::parse(['render', '--limit', '-1']);
+
+        self::assertSame(-1, ArgvParser::intOption($parsed, 'limit'));
     }
 
     public function testRejectsInvalidInteger(): void
