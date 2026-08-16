@@ -34,6 +34,7 @@ final class CliApplicationTest extends TestCase
 
         self::assertSame(0, $result['exitCode']);
         self::assertStringContainsString('Usage: agent-kanban', $result['stdout']);
+        self::assertStringContainsString('--name=value and --name value', $result['stdout']);
         self::assertSame('', $result['stderr']);
     }
 
@@ -208,7 +209,7 @@ final class CliApplicationTest extends TestCase
         $move = $this->runCli(['card', 'move', 'ABC-1', '--to=READY'], $root);
         self::assertSame(0, $move['exitCode']);
 
-        $claim = $this->runCli(['card', 'claim', 'ABC-1', '--by=codex'], $root);
+        $claim = $this->runCli(['card', 'claim', 'ABC-1', '--by', 'codex'], $root);
         self::assertSame(0, $claim['exitCode']);
 
         $conflictClaim = $this->runCli(['card', 'claim', 'ABC-1', '--by=someone-else'], $root);

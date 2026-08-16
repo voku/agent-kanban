@@ -399,7 +399,7 @@ final class CliApplication
     {
         $actor = ArgvParser::stringOption($parsed, 'by');
         if ($actor === null) {
-            throw new ValidationException('card claim requires --by=<actor>.', field: 'by', cardId: $id->toString());
+            throw new ValidationException('card claim requires --by with an actor value.', field: 'by', cardId: $id->toString());
         }
 
         $expiresValue = ArgvParser::stringOption($parsed, 'expires');
@@ -425,7 +425,7 @@ final class CliApplication
     {
         $actor = ArgvParser::stringOption($parsed, 'by');
         if ($actor === null) {
-            throw new ValidationException('card release requires --by=<actor>.', field: 'by', cardId: $id->toString());
+            throw new ValidationException('card release requires --by with an actor value.', field: 'by', cardId: $id->toString());
         }
 
         $service = $this->mutationService($context);
@@ -680,6 +680,7 @@ final class CliApplication
         $script = 'agent-kanban';
         echo <<<HELP
             Usage: {$script} <command> [options]
+            Value-taking long options accept both --name=value and --name value.
 
             Commands:
               help                                Show this help and exit 0.

@@ -97,6 +97,9 @@ of ignored.
 
 ## Option parsing is strict
 
+Value-taking long options accept both `--name=value` and `--name value`;
+examples use the equals form where it keeps command shapes compact.
+
 `ArgvParser` rejects, rather than silently ignoring or defaulting:
 
 - an option name it doesn't recognize at all (`--bogus=x`);
