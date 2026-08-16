@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.1 - 2026-08-16
+
+### Added
+
+- `card create` accepts `--brief=<text>`, so a card can be created atomically
+  with the task brief required by its target lane.
+
+### Fixed
+
+- Card mutations now reuse the board verifier before persistence and reject
+  candidate state that would immediately make the board verifier-invalid.
+  This closes the split-brain where a mutation could report success and the
+  next `verify` would reject the written card.
+- READY cards can therefore be created in one write when all required fields
+  are supplied, while create/move/claim/release/restore cannot silently
+  introduce card-local verifier errors.
+
 ## 0.3.0 - 2026-08-15
 
 ### Changed
