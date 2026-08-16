@@ -10,6 +10,7 @@ use voku\AgentKanban\Config\BoardConfig;
 use voku\AgentKanban\Domain\CardId;
 use voku\AgentKanban\Domain\CardRevision;
 use voku\AgentKanban\Domain\CardStatus;
+use voku\AgentKanban\Domain\Claim;
 use voku\AgentKanban\Domain\Lane;
 use voku\AgentKanban\Exception\ConfigurationException;
 use voku\AgentKanban\Exception\ConflictException;
@@ -199,11 +200,25 @@ final class CardMutationServiceTest extends TestCase
     public function testExpiredClaimMayBeReplaced(): void
     {
         $root = $this->tempBoard();
-        $service = $this->service($root);
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
-        $service->claim(CardId::fromString('ABC-1'), 'codex', expiresAt: new \DateTimeImmutable('-1 hour'));
+        $config = BoardConfig::default('ABC');
+        $repository = new MarkdownCardRepository($root, $config);
+        $service = new CardMutationService($root, $config, $repository);
+        $id = CardId::fromString('ABC-1');
+        $service->create($id, Lane::fromString('READY'), CardStatus::fromString(''), 'T', taskBrief: 'Brief');
 
-        $result = $service->claim(CardId::fromString('ABC-1'), 'other-agent');
+        $card = $repository->load($id);
+        $expiredClaim = new Claim(
+            'codex',
+            new \DateTimeImmutable('-2 hours'),
+            new \DateTimeImmutable('-1 hour'),
+            $card->revision,
+        );
+        $claimedCard = $card->withClaim($expiredClaim);
+        $path = $repository->findExistingPath($id);
+        self::assertNotNull($path);
+        $repository->atomicWrite($path, $repository->serialize($claimedCard), $card->revision);
+
+        $result = $service->claim($id, 'other-agent');
         self::assertSame('other-agent', $result->card->claim?->actor);
     }
 
