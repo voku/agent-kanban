@@ -85,6 +85,7 @@ final class CardCreateTaskBriefTest extends TestCase
 
     /**
      * @param list<string> $argv
+     *
      * @return array{exit: int, output: string}
      */
     private function runCli(array $argv): array
