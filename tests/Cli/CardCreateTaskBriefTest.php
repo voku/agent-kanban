@@ -7,6 +7,7 @@ namespace voku\AgentKanban\Tests\Cli;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
 use voku\AgentKanban\Cli\CliApplication;
 
 final class CardCreateTaskBriefTest extends TestCase
@@ -77,8 +78,9 @@ final class CardCreateTaskBriefTest extends TestCase
             '--format=json',
         ]);
         self::assertSame(CliApplication::EXIT_OK, $show['exit'], $show['output']);
+        /** @var array{card: array{taskBrief: string}} $payload */
         $payload = json_decode($show['output'], true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('', $payload['card']['taskBrief'] ?? null);
+        self::assertSame('', $payload['card']['taskBrief']);
     }
 
     /**
@@ -104,6 +106,7 @@ final class CardCreateTaskBriefTest extends TestCase
             new RecursiveDirectoryIterator($path, RecursiveDirectoryIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST,
         ) as $item) {
+            /** @var SplFileInfo $item */
             $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
         rmdir($path);
