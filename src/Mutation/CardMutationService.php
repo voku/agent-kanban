@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace voku\AgentKanban\Mutation;
 
 use DateTimeImmutable;
+use voku\AgentKanban\Board;
 use voku\AgentKanban\Config\BoardConfig;
 use voku\AgentKanban\Domain\Card;
+use voku\AgentKanban\Domain\CardCollection;
 use voku\AgentKanban\Domain\CardId;
 use voku\AgentKanban\Domain\CardRevision;
 use voku\AgentKanban\Domain\CardStatus;
@@ -20,6 +22,7 @@ use voku\AgentKanban\Repository\CardParser;
 use voku\AgentKanban\Repository\MarkdownCardRepository;
 use voku\AgentKanban\Transition\TransitionPolicy;
 use voku\AgentKanban\Transition\TransitionResult;
+use voku\AgentKanban\Verification\BoardVerifier;
 
 final class CardMutationService
 {
@@ -81,6 +84,7 @@ final class CardMutationService
         $revision = CardRevision::fromContent($serialized);
         $path = $this->repository->pathForNewCard($id);
         $card = $this->withRevisionAndSource($card, $revision, $path);
+        $this->assertCardCanBePersisted($card);
 
         if (!$dryRun) {
             $this->repository->atomicWrite($path, $serialized, mustNotExist: true);
@@ -314,13 +318,14 @@ final class CardMutationService
         $currentRevision = $current->revision;
         $this->assertRevision($id, $currentRevision, $expectedRevision);
         $newPath = $this->repository->pathForNewCard($id);
+        $card = $this->withRevisionAndSource($current, $currentRevision, $newPath);
+        $this->assertCardCanBePersisted($card);
 
         if (!$dryRun) {
             $this->repository->moveFile($archivedPath, $newPath, $currentRevision);
         }
 
         $now = new DateTimeImmutable();
-        $card = $this->withRevisionAndSource($current, $currentRevision, $newPath);
 
         return new MutationResult('restore', $card, $currentRevision, $currentRevision, $dryRun, [], ['*'], $now);
     }
@@ -363,6 +368,7 @@ final class CardMutationService
         $serialized = $this->repository->serialize($updated);
         $newRevision = CardRevision::fromContent($serialized);
         $finalCard = $this->withRevisionAndSource($updated, $newRevision, $path);
+        $this->assertCardCanBePersisted($finalCard);
 
         if (!$dryRun) {
             $this->repository->atomicWrite($path, $serialized, $previousRevision);
@@ -378,6 +384,28 @@ final class CardMutationService
             $changedFields,
             $timestamp,
         );
+    }
+
+    private function assertCardCanBePersisted(Card $card): void
+    {
+        $report = (new BoardVerifier())->verify(new Board(
+            config: $this->config,
+            cards: CardCollection::fromArray([$card]),
+            cardDirectory: $this->config->cardDirectory,
+        ));
+
+        foreach ($report->errors() as $violation) {
+            if ($violation->cardId !== $card->id->toString()) {
+                continue;
+            }
+
+            throw new ValidationException(
+                $violation->message,
+                cardFile: $violation->file,
+                field: $violation->field,
+                cardId: $violation->cardId,
+            );
+        }
     }
 
     private function withRevisionAndSource(Card $card, CardRevision $revision, string $sourceFile): Card
