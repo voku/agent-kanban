@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.2 - 2026-08-17
+
+### Fixed
+
+- Value-taking long CLI options now accept both `--name=value` and
+  `--name value`, so delegated callers such as `agent-loop board` use the
+  same option grammar as the umbrella workflow commands. Strict validation
+  for unknown, duplicate, boolean, empty and missing option values remains
+  unchanged.
+- CLI help and validation messages now describe that two-form contract
+  without implying that the equals form is mandatory.
+
 ## 0.3.1 - 2026-08-16
 
 ### Added
