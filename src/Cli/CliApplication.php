@@ -518,13 +518,12 @@ final class CliApplication
     private function loadBoard(BoardContext $context): Board
     {
         $cards = $context->repository->loadAll();
-        $metadata = BoardMetadata::fromFile($context->rootPath . '/todo/board.md');
 
         return new Board(
             $context->config,
             $cards,
             $context->repository->resolveCardDirectory() ?? $context->config->cardDirectory,
-            $metadata->doneCount,
+            $context->repository->archivedCount(),
         );
     }
 
