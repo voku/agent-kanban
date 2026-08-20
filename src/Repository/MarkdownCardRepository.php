@@ -60,6 +60,52 @@ final class MarkdownCardRepository
         return $this->config->cardDirectory;
     }
 
+    public function archivedCount(): int
+    {
+        if ($this->config->archiveDirectory === null) {
+            return 0;
+        }
+
+        $directory = $this->absolutePath($this->config->archiveDirectory);
+        if (!is_dir($directory)) {
+            return 0;
+        }
+
+        $this->assertNoSymlinkComponents($directory);
+        $files = glob($directory . '/*.md');
+        if ($files === false) {
+            throw new IoException('Could not list archived card files.', path: $directory);
+        }
+
+        sort($files);
+
+        $count = 0;
+        foreach ($files as $file) {
+            if (!is_file($file) || is_link($file)) {
+                continue;
+            }
+
+            $filenameId = $this->fallbackIdFromFilename($file);
+            if ($filenameId === null || !str_starts_with($filenameId, $this->config->projectPrefix . '-')) {
+                continue;
+            }
+
+            try {
+                $card = $this->parseFile($file);
+            } catch (ValidationException) {
+                continue;
+            }
+
+            if ($card->id->toString() !== $filenameId) {
+                continue;
+            }
+
+            ++$count;
+        }
+
+        return $count;
+    }
+
     /** @return list<string> */
     public function listCardFiles(): array
     {
