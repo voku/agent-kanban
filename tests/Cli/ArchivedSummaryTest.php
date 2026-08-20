@@ -38,10 +38,6 @@ final class ArchivedSummaryTest extends TestCase
         self::assertSame(1, $this->doneCount($root));
         self::assertFileExists($root . '/todo/archive/ABC-1.md');
 
-        $caseDistinctDuplicate = $root . '/todo/archive/abc-1.md';
-        if (!file_exists($caseDistinctDuplicate)) {
-            file_put_contents($caseDistinctDuplicate, $this->minimalCard('ABC-1'));
-        }
         file_put_contents($root . '/todo/archive/ABC-2.md', "# ABC-2: Broken\n\n- **Ticket:** ABC-2\n");
         file_put_contents($root . '/todo/archive/XYZ-1.md', $this->minimalCard('XYZ-1'));
         file_put_contents($root . '/todo/archive/ABC-3.md', $this->minimalCard('ABC-4'));
@@ -57,6 +53,24 @@ final class ArchivedSummaryTest extends TestCase
         self::assertSame(0, $restore['exitCode']);
         self::assertSame(0, $this->doneCount($root));
         self::assertFileExists($root . '/todo/cards/ABC-1.md');
+    }
+
+    public function testSummaryCountsCaseDistinctDuplicateCardIdOnlyOnce(): void
+    {
+        $root = $this->boardWithArchive();
+
+        $archive = $this->runCli(['card', 'archive', 'ABC-1'], $root);
+        self::assertSame(0, $archive['exitCode']);
+        self::assertSame(1, $this->doneCount($root));
+
+        $caseDistinctDuplicate = $root . '/todo/archive/abc-1.md';
+        if (file_exists($caseDistinctDuplicate)) {
+            self::markTestSkipped('Filesystem is case-insensitive and cannot represent the duplicate filename fixture.');
+        }
+
+        file_put_contents($caseDistinctDuplicate, $this->minimalCard('ABC-1'));
+
+        self::assertSame(1, $this->doneCount($root));
     }
 
     private function boardWithArchive(): string
