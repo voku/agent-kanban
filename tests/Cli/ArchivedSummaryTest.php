@@ -38,6 +38,10 @@ final class ArchivedSummaryTest extends TestCase
         self::assertSame(1, $this->doneCount($root));
         self::assertFileExists($root . '/todo/archive/ABC-1.md');
 
+        $caseDistinctDuplicate = $root . '/todo/archive/abc-1.md';
+        if (!file_exists($caseDistinctDuplicate)) {
+            file_put_contents($caseDistinctDuplicate, $this->minimalCard('ABC-1'));
+        }
         file_put_contents($root . '/todo/archive/ABC-2.md', "# ABC-2: Broken\n\n- **Ticket:** ABC-2\n");
         file_put_contents($root . '/todo/archive/XYZ-1.md', $this->minimalCard('XYZ-1'));
         file_put_contents($root . '/todo/archive/ABC-3.md', $this->minimalCard('ABC-4'));
