@@ -80,6 +80,7 @@ final class MarkdownCardRepository
         sort($files);
 
         $count = 0;
+        $seenIds = [];
         foreach ($files as $file) {
             if (!is_file($file) || is_link($file)) {
                 continue;
@@ -96,10 +97,11 @@ final class MarkdownCardRepository
                 continue;
             }
 
-            if ($card->id->toString() !== $filenameId) {
+            if ($card->id->toString() !== $filenameId || isset($seenIds[$filenameId])) {
                 continue;
             }
 
+            $seenIds[$filenameId] = true;
             ++$count;
         }
 
