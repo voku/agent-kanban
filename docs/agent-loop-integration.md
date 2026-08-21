@@ -1,9 +1,10 @@
 # Integrating with `voku/agent-loop`
 
 `agent-kanban` owns durable board state: parsing, verification, queries,
-rendering and safe card mutations. `agent-loop` owns the cross-package workflow
-around that state: deciding when to claim work, starting sessions, preparing
-recall, executing and verifying edits, reviewing, learning and closing.
+rendering and safe card mutations. `agent-loop` owns cross-package lifecycle
+policy around that state and projects its canonical next action through
+`agent-loop enter <task-id>` and `agent-loop finish <task-id>`. Implementation
+remains host-native, while each focused package retains its domain semantics.
 
 This document describes the current typed integration boundary. It does not
 claim that `agent-kanban` owns any part of the larger governed lifecycle.
@@ -19,13 +20,6 @@ The package-local tests below prove the behavior of the typed board engine. A
 clean installed-package release-set smoke in `agent-loop` is the required proof
 that the complete package set works together in a consumer repository. Package
 READMEs agreeing with one another is useful, but it is not executable evidence.
-
-Tracking work:
-
-- [agent-kanban#2](https://github.com/voku/agent-kanban/issues/2)
-- [agent-loop#18](https://github.com/voku/agent-loop/issues/18)
-- [agent-loop#19](https://github.com/voku/agent-loop/issues/19)
-- [agent-loop#20](https://github.com/voku/agent-loop/issues/20)
 
 ## Ownership boundary
 
@@ -177,23 +171,20 @@ silently returning less than was asked for.
 
 ## Board reference in a governed run
 
-The cross-package run manifest belongs to `agent-loop`. A board reference should
-point to owning board evidence rather than copy mutable card state.
+The cross-package run manifest belongs to `agent-loop`. Current `agent-loop`
+derives a bounded board reference through `agent-kanban`'s typed board context
+and repository rather than copying mutable card state into a second board
+model. The projection includes the checked board state, configuration identity
+when available, and for a linked card its ID, revision, lane/status and source
+artifact.
 
-The planned reference contains:
-
-- board/config schema identity;
-- card ID and source path;
-- card revision/content digest;
-- lane and status;
-- claim identity when present;
-- board verification state.
+`agent-kanban` remains authoritative for board parsing, policy and mutations.
+A dedicated Run-reference API should only be added if real post-integration
+coupling demonstrates that the existing typed boundary is insufficient, not for
+symmetry with the other focused packages.
 
 Board state is optional for an ad hoc task unless the chosen workflow mode
 requires a card. “No board” and “invalid board” are different states.
-
-See [agent-kanban#2](https://github.com/voku/agent-kanban/issues/2) for the
-versioned reference contract work.
 
 ## What stays out of `agent-kanban`
 
