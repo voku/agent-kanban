@@ -1,9 +1,10 @@
 # Integrating with `voku/agent-loop`
 
 `agent-kanban` owns durable board state: parsing, verification, queries,
-rendering and safe card mutations. `agent-loop` owns the cross-package workflow
-around that state: deciding when to claim work, starting sessions, preparing
-recall, executing and verifying edits, reviewing, learning and closing.
+rendering and safe card mutations. `agent-loop` owns cross-package lifecycle
+policy around that state and projects its canonical next action through
+`agent-loop enter <task-id>` and `agent-loop finish <task-id>`. Implementation
+remains host-native, while each focused package retains its domain semantics.
 
 This document describes the current typed integration boundary. It does not
 claim that `agent-kanban` owns any part of the larger governed lifecycle.
