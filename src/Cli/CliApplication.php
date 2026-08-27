@@ -70,7 +70,7 @@ final class CliApplication
     /** @var array<string, list<string>> */
     private const array CARD_SUBCOMMAND_OPTIONS = [
         'show'    => ['fields'],
-        'create'  => ['title', 'lane', 'status', 'summary', 'brief', 'dry-run'],
+        'create'  => ['title', 'lane', 'status', 'summary', 'next', 'validation', 'brief', 'dry-run'],
         'update'  => [
             'title', 'status', 'domain', 'assignee', 'summary', 'next', 'validation',
             'priority', 'wave', 'brief', 'handoff', 'dry-run', 'expected-revision',
@@ -333,6 +333,8 @@ final class CliApplication
         $statusValue = ArgvParser::stringOption($parsed, 'status', '') ?? '';
         $title = ArgvParser::stringOption($parsed, 'title', '') ?? '';
         $summary = ArgvParser::stringOption($parsed, 'summary', '') ?? '';
+        $nextAction = ArgvParser::stringOption($parsed, 'next', '') ?? '';
+        $validation = ArgvParser::stringOption($parsed, 'validation', '') ?? '';
         $taskBrief = ArgvParser::stringOption($parsed, 'brief', '') ?? '';
 
         $service = $this->mutationService($context);
@@ -344,6 +346,8 @@ final class CliApplication
             summary: $summary,
             dryRun: $dryRun,
             taskBrief: $taskBrief,
+            nextAction: $nextAction,
+            validation: $validation,
         );
 
         return $this->reportMutation($result, $output);
@@ -445,7 +449,7 @@ final class CliApplication
     private function cardRestore(BoardContext $context, CardId $id, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $service = $this->mutationService($context);
-        $result = $service->restore($id, $expectedRevision, $dryRun);
+        $result = $service->restore($id, $expectedRevision, $dryRun, $output);
 
         return $this->reportMutation($result, $output);
     }
@@ -689,7 +693,7 @@ final class CliApplication
               next-pull                           Cards with a configured pull priority, ranked.
               lane <LANE>                         Cards in one lane.
               card show <ID>                      Show one card.
-              card create <ID> --title=... [--lane=] [--status=] [--summary=] [--brief=]
+              card create <ID> --title=... [--lane=] [--status=] [--summary=] [--next=] [--validation=] [--brief=]
               card update <ID> [--title=] [--status=] [--domain=] [--assignee=] [--summary=]
                                                    [--next=] [--validation=] [--priority=] [--wave=]
                                                    [--brief=] [--handoff=]
