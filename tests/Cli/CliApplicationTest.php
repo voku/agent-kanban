@@ -219,6 +219,29 @@ final class CliApplicationTest extends TestCase
         self::assertSame(0, $release['exitCode']);
     }
 
+    public function testCardCreateAcceptsNextActionAndValidationWithoutFollowUpUpdate(): void
+    {
+        $root = $this->emptyBoard();
+
+        $create = $this->runCli([
+            'card', 'create', 'ABC-1',
+            '--title=Complete initial card',
+            '--lane=BACKLOG',
+            '--next=Implement the owner-local fix.',
+            '--validation=vendor/bin/phpunit tests/Cli/CliApplicationTest.php',
+        ], $root);
+        self::assertSame(0, $create['exitCode'], $create['stderr']);
+
+        $show = $this->runCli(['card', 'show', 'ABC-1', '--format=json'], $root);
+        self::assertSame(0, $show['exitCode'], $show['stderr']);
+        $decoded = json_decode($show['stdout'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        $card = $decoded['card'] ?? null;
+        self::assertIsArray($card);
+        self::assertSame('Implement the owner-local fix.', $card['nextAction'] ?? null);
+        self::assertSame('vendor/bin/phpunit tests/Cli/CliApplicationTest.php', $card['validation'] ?? null);
+    }
+
     public function testJsonMutationResultIsVersionedAndParseable(): void
     {
         $root = $this->emptyBoard();
