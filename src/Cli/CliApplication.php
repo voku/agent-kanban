@@ -449,7 +449,7 @@ final class CliApplication
     private function cardRestore(BoardContext $context, CardId $id, ?CardRevision $expectedRevision, bool $dryRun, OutputOptions $output): int
     {
         $service = $this->mutationService($context);
-        $result = $service->restore($id, $expectedRevision, $dryRun, $output);
+        $result = $service->restore($id, $expectedRevision, $dryRun);
 
         return $this->reportMutation($result, $output);
     }
