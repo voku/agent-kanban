@@ -14,7 +14,7 @@ final class BoardContextResolverTest extends TestCase
     protected function setUp(): void
     {
         $this->root = sys_get_temp_dir() . '/agent-kanban-context-' . bin2hex(random_bytes(8));
-        mkdir($this->root . '/todo/cards', 0777, true);
+        mkdir($this->root . '/todo/cards', 0o777, true);
     }
 
     protected function tearDown(): void
