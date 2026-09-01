@@ -49,6 +49,17 @@ final class BoardContextResolverTest extends TestCase
         self::assertSame('NEW', $context->config->projectPrefix);
     }
 
+    public function testExplicitFilesystemRootIsPreserved(): void
+    {
+        $explicit = $this->root . '/board-config.json';
+        file_put_contents($explicit, json_encode(['projectPrefix' => 'ROOT'], JSON_THROW_ON_ERROR));
+
+        $context = (new BoardContextResolver())->resolve($this->root, '/', $explicit);
+
+        self::assertSame('/', $context->rootPath);
+        self::assertSame('ROOT', $context->config->projectPrefix);
+    }
+
     public function testFallsBackToBoardMetadata(): void
     {
         file_put_contents(
