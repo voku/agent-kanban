@@ -55,7 +55,7 @@ final class CliApplication
     public const int EXIT_EXTERNAL_PROVIDER_ERROR = 6;
 
     /** @var list<string> */
-    private const array GLOBAL_OPTIONS = ['format', 'root', 'config', 'compact'];
+    private const array GLOBAL_OPTIONS = ['format', 'root', 'config', 'compact', 'board'];
 
     /** @var array<string, list<string>> */
     private const array COMMAND_OPTIONS = [
@@ -112,10 +112,12 @@ final class CliApplication
             $command = $positional[0] ?? '';
 
             $output = OutputOptions::fromArgs($parsed);
+            $boardId = ArgvParser::stringOption($parsed, 'board');
             $context = $this->contextFactory->create(
                 $this->defaultRootPath,
                 ArgvParser::stringOption($parsed, 'root'),
                 ArgvParser::stringOption($parsed, 'config'),
+                $boardId,
             );
 
             if (array_key_exists($command, self::COMMAND_OPTIONS)) {
@@ -125,7 +127,7 @@ final class CliApplication
             return match ($command) {
                 'summary'       => $this->cmdSummary($context, $output),
                 'render'        => $this->cmdRender($context, $parsed, $output),
-                'verify'        => $this->cmdVerify($context, $output),
+                'verify'        => $this->cmdVerifyAll($parsed, $boardId, $context, $output),
                 'next-pull'     => $this->cmdNextPull($context, $output),
                 'lane'          => $this->cmdLane($context, $positional[1] ?? '', $output),
                 'card'          => $this->cmdCard($context, $positional, $parsed, $output),
@@ -194,6 +196,43 @@ final class CliApplication
         echo $renderer->renderFiltered($board, $options);
 
         return self::EXIT_OK;
+    }
+
+    /**
+     * Verifying only the default board reported success over a fraction of the
+     * configured scope: a repository with three boards got one green line and
+     * two unchecked card directories. Unless a board is named explicitly, every
+     * configured board is verified and the worst exit code wins.
+     *
+     * @param array{options: array<string, string|bool>, positional: list<string>} $parsed
+     */
+    private function cmdVerifyAll(array $parsed, ?string $boardId, BoardContext $context, OutputOptions $output): int
+    {
+        if ($boardId !== null) {
+            return $this->cmdVerify($context, $output);
+        }
+
+        $contexts = $this->contextFactory->createAll(
+            $this->defaultRootPath,
+            ArgvParser::stringOption($parsed, 'root'),
+            ArgvParser::stringOption($parsed, 'config'),
+        );
+        if (count($contexts) <= 1) {
+            return $this->cmdVerify($context, $output);
+        }
+
+        $exit = self::EXIT_OK;
+        foreach ($contexts as $id => $boardContext) {
+            if (!$output->isJson()) {
+                echo 'Board "' . $id . '":' . "\n";
+            }
+            $boardExit = $this->cmdVerify($boardContext, $output);
+            if ($boardExit !== self::EXIT_OK) {
+                $exit = $boardExit;
+            }
+        }
+
+        return $exit;
     }
 
     private function cmdVerify(BoardContext $context, OutputOptions $output): int
@@ -719,6 +758,8 @@ final class CliApplication
               --expected-revision=<sha256>  Optimistic-concurrency check for mutations.
               --root=<path>                 Board root (default: current directory).
               --config=<path>               Explicit BoardConfig JSON file.
+              --board=<id>                  Board to act on when several are configured.
+                                            Without it, verify covers every board.
 
             Exit codes: 0 ok, 1 usage/validation error, 2 not found, 3 conflict,
             4 verification failed, 5 configuration error, 6 external provider error.
