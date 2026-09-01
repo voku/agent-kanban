@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.3.4 - 2026-09-01
+
+### Fixed
+
+- Repair the multi-board configuration static contract introduced in 0.3.3: keep untrusted optional `id`/`title` inputs correctly typed until runtime validation, expose the already-enforced non-empty board set to PHPStan, and remove the resulting dead null guard. Runtime behavior is unchanged.
+
+### Validation
+
+- Exact-head PHP 8.3, 8.4 and 8.5 CI passes, including PHPUnit, PHPStan, coding style, Composer validation and the clean installed consumer.
+
 ## 0.3.3 - 2026-09-01
 
 ### Added
