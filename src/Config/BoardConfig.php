@@ -212,7 +212,7 @@ final readonly class BoardConfig
         }
 
         $defaultKey = $multi['defaultBoard'] ?? array_key_first($multi['boards']);
-        if ($defaultKey !== null && isset($multi['boards'][$defaultKey])) {
+        if (isset($multi['boards'][$defaultKey])) {
             return $multi['boards'][$defaultKey];
         }
 
