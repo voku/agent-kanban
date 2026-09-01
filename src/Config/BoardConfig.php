@@ -104,8 +104,8 @@ final readonly class BoardConfig
          *   transitions?: TransitionMap,
          *   formatVersion?: int,
          *   externalIssueSystem?: string|null,
-         *   id?: string|null,
-         *   title?: string|null
+         *   id?: mixed,
+         *   title?: mixed
          * } $data
          */
         return new self(
@@ -126,7 +126,7 @@ final readonly class BoardConfig
     }
 
     /**
-     * @return array{defaultBoard: string|null, boards: array<string, BoardConfig>}
+     * @return array{defaultBoard: string|null, boards: non-empty-array<string, BoardConfig>}
      */
     public static function multiFromJsonFile(string $path): array
     {
