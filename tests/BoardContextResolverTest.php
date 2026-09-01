@@ -81,6 +81,48 @@ final class BoardContextResolverTest extends TestCase
         self::assertSame('XYZ', $context->config->projectPrefix);
     }
 
+    public function testResolvesMultiBoardConfiguration(): void
+    {
+        mkdir($this->root . '/todo/jira', 0o777, true);
+        mkdir($this->root . '/todo/followups', 0o777, true);
+
+        file_put_contents(
+            $this->root . '/todo/kanban.config.json',
+            json_encode([
+                'defaultBoard' => 'jira',
+                'boards' => [
+                    [
+                        'id' => 'jira',
+                        'title' => 'Jira Sprint Tasks',
+                        'projectPrefix' => 'JIRA',
+                        'cardDirectory' => 'todo/jira',
+                    ],
+                    [
+                        'id' => 'followups',
+                        'title' => 'Followups',
+                        'projectPrefix' => 'FOL',
+                        'cardDirectory' => 'todo/followups',
+                    ],
+                ],
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        $resolver = new BoardContextResolver();
+        $defaultContext = $resolver->resolve($this->root);
+        self::assertSame('JIRA', $defaultContext->config->projectPrefix);
+        self::assertSame('jira', $defaultContext->config->id);
+        self::assertSame('Jira Sprint Tasks', $defaultContext->config->title);
+
+        $followupsContext = $resolver->resolve($this->root, null, null, 'followups');
+        self::assertSame('FOL', $followupsContext->config->projectPrefix);
+        self::assertSame('followups', $followupsContext->config->id);
+
+        $all = $resolver->resolveAll($this->root);
+        self::assertCount(2, $all);
+        self::assertArrayHasKey('jira', $all);
+        self::assertArrayHasKey('followups', $all);
+    }
+
     private function removeDirectory(string $path): void
     {
         if (!is_dir($path)) {

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- `BoardConfig` & `BoardContextResolver`: Added multi-board support. `todo/kanban.config.json` can now configure multiple boards under a `"boards"` array and specify a `"defaultBoard"`. `BoardContextResolver::resolveAll()` resolves all configured boards, and `BoardContextResolver::resolve()` supports resolving a specific board by board ID or project prefix.
+
 ## 0.3.2 - 2026-08-17
 
 ### Fixed

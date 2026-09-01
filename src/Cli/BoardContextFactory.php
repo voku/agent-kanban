@@ -18,14 +18,39 @@ final readonly class BoardContextFactory
     {
     }
 
-    public function create(string $defaultRootPath, ?string $rootOption, ?string $configOption): BoardContext
-    {
-        $resolved = $this->resolver->resolve($defaultRootPath, $rootOption, $configOption);
+    public function create(
+        string $defaultRootPath,
+        ?string $rootOption = null,
+        ?string $configOption = null,
+        ?string $boardId = null,
+    ): BoardContext {
+        $resolved = $this->resolver->resolve($defaultRootPath, $rootOption, $configOption, $boardId);
 
         return new BoardContext(
             $resolved->rootPath,
             $resolved->config,
             $resolved->repository,
         );
+    }
+
+    /**
+     * @return array<string, BoardContext>
+     */
+    public function createAll(
+        string $defaultRootPath,
+        ?string $rootOption = null,
+        ?string $configOption = null,
+    ): array {
+        $all = $this->resolver->resolveAll($defaultRootPath, $rootOption, $configOption);
+        $result = [];
+        foreach ($all as $key => $resolved) {
+            $result[$key] = new BoardContext(
+                $resolved->rootPath,
+                $resolved->config,
+                $resolved->repository,
+            );
+        }
+
+        return $result;
     }
 }

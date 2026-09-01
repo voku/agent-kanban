@@ -58,6 +58,8 @@ final readonly class BoardConfig
         ?array $transitions = null,
         public int $formatVersion = self::CURRENT_FORMAT_VERSION,
         public ?string $externalIssueSystem = null,
+        public ?string $id = null,
+        public ?string $title = null,
     ) {
         $this->requiredFieldsByLane = $requiredFieldsByLane
             ?? (in_array('READY', $lanes, true) ? ['READY' => ['taskBrief']] : []);
@@ -101,7 +103,9 @@ final readonly class BoardConfig
          *   requiredFieldsByLane?: RequiredFieldsMap,
          *   transitions?: TransitionMap,
          *   formatVersion?: int,
-         *   externalIssueSystem?: string|null
+         *   externalIssueSystem?: string|null,
+         *   id?: string|null,
+         *   title?: string|null
          * } $data
          */
         return new self(
@@ -116,10 +120,15 @@ final readonly class BoardConfig
             transitions: $data['transitions'] ?? null,
             formatVersion: $data['formatVersion'] ?? self::CURRENT_FORMAT_VERSION,
             externalIssueSystem: $data['externalIssueSystem'] ?? null,
+            id: isset($data['id']) && is_string($data['id']) && $data['id'] !== '' ? $data['id'] : null,
+            title: isset($data['title']) && is_string($data['title']) && $data['title'] !== '' ? $data['title'] : null,
         );
     }
 
-    public static function fromJsonFile(string $path): self
+    /**
+     * @return array{defaultBoard: string|null, boards: array<string, BoardConfig>}
+     */
+    public static function multiFromJsonFile(string $path): array
     {
         if (!is_file($path)) {
             throw new ConfigurationException(sprintf('Config file not found: %s', $path), configPath: $path);
@@ -144,7 +153,70 @@ final readonly class BoardConfig
         }
 
         /** @var array<string, mixed> $decoded */
-        return self::fromArray($decoded);
+        if (isset($decoded['boards']) && is_array($decoded['boards'])) {
+            $boards = [];
+            foreach ($decoded['boards'] as $key => $boardData) {
+                if (!is_array($boardData)) {
+                    continue;
+                }
+                /** @var array<string, mixed> $boardData */
+                $config = self::fromArray($boardData);
+                $boardKey = $config->id ?? (is_string($key) && $key !== '' ? $key : $config->projectPrefix);
+                $boards[$boardKey] = $config;
+            }
+
+            if ($boards === []) {
+                throw new ConfigurationException(
+                    sprintf('Config file %s defines "boards" but contains no valid board configurations.', $path),
+                    configPath: $path,
+                );
+            }
+
+            $defaultBoard = isset($decoded['defaultBoard']) && is_string($decoded['defaultBoard'])
+                ? $decoded['defaultBoard']
+                : (array_key_first($boards));
+
+            return [
+                'defaultBoard' => $defaultBoard,
+                'boards' => $boards,
+            ];
+        }
+
+        $single = self::fromArray($decoded);
+        $key = $single->id ?? $single->projectPrefix;
+
+        return [
+            'defaultBoard' => $key,
+            'boards' => [$key => $single],
+        ];
+    }
+
+    public static function fromJsonFile(string $path, ?string $boardId = null): self
+    {
+        $multi = self::multiFromJsonFile($path);
+        if ($boardId !== null) {
+            if (isset($multi['boards'][$boardId])) {
+                return $multi['boards'][$boardId];
+            }
+
+            foreach ($multi['boards'] as $board) {
+                if ($board->projectPrefix === $boardId) {
+                    return $board;
+                }
+            }
+
+            throw new ConfigurationException(
+                sprintf('Board "%s" not found in config file: %s', $boardId, $path),
+                configPath: $path,
+            );
+        }
+
+        $defaultKey = $multi['defaultBoard'] ?? array_key_first($multi['boards']);
+        if ($defaultKey !== null && isset($multi['boards'][$defaultKey])) {
+            return $multi['boards'][$defaultKey];
+        }
+
+        return reset($multi['boards']);
     }
 
     public function supportsLane(Lane $lane): bool
@@ -154,6 +226,8 @@ final readonly class BoardConfig
 
     /**
      * @return array{
+     *   id: string|null,
+     *   title: string|null,
      *   projectPrefix: string,
      *   cardDirectory: string,
      *   legacyCardDirectory: string,
@@ -170,6 +244,8 @@ final readonly class BoardConfig
     public function toArray(): array
     {
         return [
+            'id' => $this->id,
+            'title' => $this->title,
             'projectPrefix' => $this->projectPrefix,
             'cardDirectory' => $this->cardDirectory,
             'legacyCardDirectory' => $this->legacyCardDirectory,
