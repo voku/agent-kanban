@@ -9,9 +9,8 @@ use voku\AgentKanban\Config\BoardConfig;
 /**
  * Last-resort project-prefix detection: when neither an explicit config nor
  * `todo/board.md` says what the prefix is, infer it from whatever card
- * files already exist. Shared by {@see \voku\AgentKanban\Cli\BoardContextFactory}
- * and the deprecated `voku\AgentKanban\Legacy` facades so the rule is
- * defined exactly once.
+ * files already exist. Used by {@see BoardContextResolver} and the deprecated
+ * `voku\AgentKanban\Legacy` facades so the rule is defined exactly once.
  */
 final class ProjectPrefixInference
 {
