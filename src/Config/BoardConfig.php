@@ -104,8 +104,8 @@ final readonly class BoardConfig
          *   transitions?: TransitionMap,
          *   formatVersion?: int,
          *   externalIssueSystem?: string|null,
-         *   id?: string|null,
-         *   title?: string|null
+         *   id?: mixed,
+         *   title?: mixed
          * } $data
          */
         return new self(
@@ -126,7 +126,7 @@ final readonly class BoardConfig
     }
 
     /**
-     * @return array{defaultBoard: string|null, boards: array<string, BoardConfig>}
+     * @return array{defaultBoard: string|null, boards: non-empty-array<string, BoardConfig>}
      */
     public static function multiFromJsonFile(string $path): array
     {
@@ -212,7 +212,7 @@ final readonly class BoardConfig
         }
 
         $defaultKey = $multi['defaultBoard'] ?? array_key_first($multi['boards']);
-        if ($defaultKey !== null && isset($multi['boards'][$defaultKey])) {
+        if (isset($multi['boards'][$defaultKey])) {
             return $multi['boards'][$defaultKey];
         }
 
