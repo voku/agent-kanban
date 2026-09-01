@@ -19,7 +19,7 @@ final readonly class BoardContextResolver
 
     public function resolve(string $defaultRootPath, ?string $rootOption = null, ?string $configOption = null): BoardContext
     {
-        $rootPath = $rootOption !== null ? rtrim($rootOption, '/') : $defaultRootPath;
+        $rootPath = $rootOption === '/' ? '/' : ($rootOption !== null ? rtrim($rootOption, '/') : $defaultRootPath);
         $config = $this->resolveConfig($rootPath, $configOption);
 
         return new BoardContext(
