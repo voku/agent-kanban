@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.4.0 - 2026-09-04
+
+### Added
+
+- Flat and custom board directory layouts: `kanban.config.json` and `board.md`
+  may live at the repository root without a `todo/` subdirectory, with `cards/`
+  and `jira/` fallback resolution in `MarkdownCardRepository` and
+  `ProjectPrefixInference`. Verification violation messages no longer hardcode
+  `todo/board.md` and `TODO.md`.
+
+### Fixed
+
+- `verify` now covers every configured board instead of only the default one,
+  and `--board` is a known global option. Multi-board support existed in the
+  library and the UI, but `ArgvParser` rejected `--board` as unknown and
+  `CliApplication` never passed a board id to `BoardContextFactory::create()`.
+  A repository with three configured boards reported one "Board verification
+  passed." line while two card directories were never read, so a broken card on
+  a non-default board still exited 0. The worst exit code across boards now
+  wins. **Expect previously-hidden violations to surface on non-default boards.**
+- A board that names its own `cardDirectory` no longer inherits the global
+  `todo/jira` default as its `legacyCardDirectory`. In a multi-board config that
+  path is another board's directory, so a board whose configured directory was
+  missing silently read, verified and would have written that other board's
+  cards under the wrong project prefix. An explicit `legacyCardDirectory` is
+  still honored, and a conventional board keeps the `todo/cards` -> `todo/jira`
+  migration fallback.
+- Verifying a board whose configured card directory does not exist is now a
+  `missing-card-directory` error. It previously loaded zero cards and reported
+  "Board verification passed." - success over none of its scope, the same false
+  green this release fixes for unvisited boards.
+- A board whose preferred and legacy card directories are the same path is no
+  longer reported as ambiguous against itself ('Both "todo/jira" and
+  "todo/jira" exist').
+- Board metadata (`board.md`) and index (`TODO.md`) verification in multi-board
+  repositories now scopes metadata and index checks to matching boards, preventing
+  false-positive prefix or directory inconsistency errors on non-default boards
+  when a default board metadata file exists.
+
+### Changed
+
+- Add a memory limit to the `phpstan` Composer script and fix php-cs-fixer
+  docblock formatting.
+
 ## 0.3.4 - 2026-09-01
 
 ### Fixed
