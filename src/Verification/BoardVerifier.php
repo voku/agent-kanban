@@ -288,7 +288,7 @@ final class BoardVerifier
                 $violations[] = new Violation(
                     ViolationCode::BoardMetadataInconsistency,
                     sprintf(
-                        'todo/board.md declares project prefix "%s", but the board is configured for "%s".',
+                        'Board metadata declares project prefix "%s", but the board is configured for "%s".',
                         $metadataPrefix,
                         $board->config->projectPrefix,
                     ),
@@ -301,7 +301,7 @@ final class BoardVerifier
             if (!str_contains($context->indexContent, $context->cardDirectory . '/')) {
                 $violations[] = new Violation(
                     ViolationCode::BoardMetadataInconsistency,
-                    sprintf('TODO.md does not reference the active card directory "%s/".', $context->cardDirectory),
+                    sprintf('Card index does not reference the active card directory "%s/".', $context->cardDirectory),
                     Severity::Error,
                 );
             }

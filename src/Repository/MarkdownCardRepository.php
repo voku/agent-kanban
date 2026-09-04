@@ -52,11 +52,24 @@ final class MarkdownCardRepository
             return $this->config->legacyCardDirectory;
         }
 
+        if ($this->config->cardDirectory === BoardConfig::PREFERRED_CARD_DIRECTORY && is_dir($this->absolutePath('cards'))) {
+            return 'cards';
+        }
+
+        if ($this->config->legacyCardDirectory === BoardConfig::LEGACY_CARD_DIRECTORY && is_dir($this->absolutePath('jira'))) {
+            return 'jira';
+        }
+
         return null;
     }
 
     public function directoryForNewCard(): string
     {
+        $resolved = $this->resolveCardDirectory();
+        if ($resolved !== null) {
+            return $resolved;
+        }
+
         return $this->config->cardDirectory;
     }
 

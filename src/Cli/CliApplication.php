@@ -585,13 +585,19 @@ final class CliApplication
             }
         }
 
-        $indexPath = $context->rootPath . '/TODO.md';
+        $indexPath = is_file($context->rootPath . '/board.md')
+            ? $context->rootPath . '/board.md'
+            : $context->rootPath . '/TODO.md';
         $indexContent = is_file($indexPath) ? file_get_contents($indexPath) : false;
+
+        $metadataPath = is_file($context->rootPath . '/board.md')
+            ? $context->rootPath . '/board.md'
+            : $context->rootPath . '/todo/board.md';
 
         return new BoardVerificationContext(
             archivedCardIds: $archivedCardIds,
             bothCardDirectoriesExist: $preferredExists && $legacyExists,
-            boardMetadata: BoardMetadata::fromFile($context->rootPath . '/todo/board.md'),
+            boardMetadata: BoardMetadata::fromFile($metadataPath),
             indexContent: $indexContent === false ? null : $indexContent,
             cardDirectory: $context->repository->resolveCardDirectory(),
         );

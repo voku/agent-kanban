@@ -70,6 +70,11 @@ final readonly class BoardContextResolver
             return BoardConfig::multiFromJsonFile($conventionalPath)['boards'];
         }
 
+        $directPath = $rootPath . '/kanban.config.json';
+        if (is_file($directPath)) {
+            return BoardConfig::multiFromJsonFile($directPath)['boards'];
+        }
+
         $single = $this->resolveConfig($rootPath, null, null);
         $key = $single->id ?? $single->projectPrefix;
 
@@ -87,9 +92,22 @@ final readonly class BoardContextResolver
             return BoardConfig::fromJsonFile($conventionalPath, $boardId);
         }
 
-        $metadata = BoardMetadata::fromFile($rootPath . '/todo/board.md');
-        if ($metadata->projectPrefix !== null) {
-            return BoardConfig::default($metadata->projectPrefix);
+        $directPath = $rootPath . '/kanban.config.json';
+        if (is_file($directPath)) {
+            return BoardConfig::fromJsonFile($directPath, $boardId);
+        }
+
+        $metadataPaths = [
+            $rootPath . '/todo/board.md',
+            $rootPath . '/board.md',
+        ];
+        foreach ($metadataPaths as $metadataPath) {
+            if (is_file($metadataPath)) {
+                $metadata = BoardMetadata::fromFile($metadataPath);
+                if ($metadata->projectPrefix !== null) {
+                    return BoardConfig::default($metadata->projectPrefix);
+                }
+            }
         }
 
         $inferred = ProjectPrefixInference::infer($rootPath);
@@ -99,8 +117,8 @@ final readonly class BoardContextResolver
 
         throw new ConfigurationException(
             'Could not determine the project prefix. Provide --config=<path>, '
-            . 'add "- **Project prefix:** X" to todo/board.md, or add a '
-            . 'todo/kanban.config.json with a "projectPrefix" key.',
+            . 'add "- **Project prefix:** X" to todo/board.md or board.md, or add a '
+            . 'kanban.config.json with a "projectPrefix" key.',
         );
     }
 }

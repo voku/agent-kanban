@@ -16,7 +16,7 @@ final class ProjectPrefixInference
 {
     public static function infer(string $rootPath): ?string
     {
-        foreach ([BoardConfig::PREFERRED_CARD_DIRECTORY, BoardConfig::LEGACY_CARD_DIRECTORY] as $directory) {
+        foreach ([BoardConfig::PREFERRED_CARD_DIRECTORY, BoardConfig::LEGACY_CARD_DIRECTORY, 'cards', 'jira'] as $directory) {
             $files = glob($rootPath . '/' . $directory . '/*.md');
             if ($files === false || $files === []) {
                 continue;

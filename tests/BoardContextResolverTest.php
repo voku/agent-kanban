@@ -72,6 +72,30 @@ final class BoardContextResolverTest extends TestCase
         self::assertSame('META', $context->config->projectPrefix);
     }
 
+    public function testFallsBackToFlatBoardMetadata(): void
+    {
+        file_put_contents(
+            $this->root . '/board.md',
+            "# Flat Board\n\n- **Project prefix:** FLAT\n\n## Work\n",
+        );
+
+        $context = (new BoardContextResolver())->resolve($this->root);
+
+        self::assertSame('FLAT', $context->config->projectPrefix);
+    }
+
+    public function testResolvesDirectConfigAtRoot(): void
+    {
+        file_put_contents(
+            $this->root . '/kanban.config.json',
+            json_encode(['projectPrefix' => 'DIRECT'], JSON_THROW_ON_ERROR),
+        );
+
+        $context = (new BoardContextResolver())->resolve($this->root);
+
+        self::assertSame('DIRECT', $context->config->projectPrefix);
+    }
+
     public function testFallsBackToExistingCardPrefix(): void
     {
         file_put_contents($this->root . '/todo/cards/xyz-17.md', "# placeholder\n");
@@ -79,6 +103,16 @@ final class BoardContextResolverTest extends TestCase
         $context = (new BoardContextResolver())->resolve($this->root);
 
         self::assertSame('XYZ', $context->config->projectPrefix);
+    }
+
+    public function testFallsBackToFlatExistingCardPrefix(): void
+    {
+        mkdir($this->root . '/cards', 0o777, true);
+        file_put_contents($this->root . '/cards/flat-99.md', "# placeholder\n");
+
+        $context = (new BoardContextResolver())->resolve($this->root);
+
+        self::assertSame('FLAT', $context->config->projectPrefix);
     }
 
     public function testResolvesMultiBoardConfiguration(): void
