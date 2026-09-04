@@ -162,6 +162,19 @@ final class BoardVerifierTest extends TestCase
         self::assertContainsViolation($report, ViolationCode::SourceDirectoryAmbiguity);
     }
 
+    public function testIdenticalCardDirectoriesAreNotReportedAsAmbiguous(): void
+    {
+        // A board configured with the same preferred and legacy directory reported
+        // 'Both "todo/jira" and "todo/jira" exist' on every verification run.
+        $config = new BoardConfig('ABC', cardDirectory: 'todo/jira', legacyCardDirectory: 'todo/jira');
+        $board = new Board($config, CardCollection::empty(), 'todo/jira');
+        $context = new BoardVerificationContext(bothCardDirectoriesExist: true);
+
+        $report = (new BoardVerifier())->verify($board, [], $context);
+
+        self::assertNotContainsViolation($report, ViolationCode::SourceDirectoryAmbiguity);
+    }
+
     public function testArchiveConflictDetected(): void
     {
         $config = BoardConfig::default('ABC');
@@ -183,6 +196,17 @@ final class BoardVerifierTest extends TestCase
         $report = (new BoardVerifier())->verify($board, [], $context);
 
         self::assertContainsViolation($report, ViolationCode::BoardMetadataInconsistency);
+    }
+
+    private static function assertNotContainsViolation(\voku\AgentKanban\Verification\VerificationReport $report, ViolationCode $code): void
+    {
+        $codes = array_map(static fn ($violation): string => $violation->code->value, $report->violations);
+
+        self::assertNotContains(
+            $code->value,
+            $codes,
+            sprintf('Did not expect a violation with code "%s", got: %s', $code->value, implode(', ', $codes)),
+        );
     }
 
     private static function assertContainsViolation(\voku\AgentKanban\Verification\VerificationReport $report, ViolationCode $code): void

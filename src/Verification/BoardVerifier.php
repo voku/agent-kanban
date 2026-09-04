@@ -257,7 +257,11 @@ final class BoardVerifier
     {
         $violations = [];
 
-        if ($context->bothCardDirectoriesExist) {
+        // A board whose preferred and legacy directories are the same path is not
+        // ambiguous; reporting it produced 'Both "todo/jira" and "todo/jira" exist'.
+        if ($context->bothCardDirectoriesExist
+            && $board->config->cardDirectory !== $board->config->legacyCardDirectory
+        ) {
             $violations[] = new Violation(
                 ViolationCode::SourceDirectoryAmbiguity,
                 sprintf(
