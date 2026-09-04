@@ -108,10 +108,21 @@ final readonly class BoardConfig
          *   title?: mixed
          * } $data
          */
+        $cardDirectory = $data['cardDirectory'] ?? self::PREFERRED_CARD_DIRECTORY;
+
+        // A board that names its own card directory has no *distinct* legacy
+        // location to migrate away from. Inheriting the global default made every
+        // explicitly configured board fall back to `todo/jira`, which in a
+        // multi-board repository is another board's directory: a board whose
+        // configured directory was missing silently read, verified and wrote that
+        // other board's cards.
+        $legacyCardDirectory = $data['legacyCardDirectory']
+            ?? (isset($data['cardDirectory']) ? $cardDirectory : self::LEGACY_CARD_DIRECTORY);
+
         return new self(
             projectPrefix: $data['projectPrefix'],
-            cardDirectory: $data['cardDirectory'] ?? self::PREFERRED_CARD_DIRECTORY,
-            legacyCardDirectory: $data['legacyCardDirectory'] ?? self::LEGACY_CARD_DIRECTORY,
+            cardDirectory: $cardDirectory,
+            legacyCardDirectory: $legacyCardDirectory,
             archiveDirectory: $data['archiveDirectory'] ?? null,
             lanes: $data['lanes'] ?? self::DEFAULT_LANES,
             statusToLane: $data['statusToLane'] ?? [],

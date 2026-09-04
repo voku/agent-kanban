@@ -257,6 +257,19 @@ final class BoardVerifier
     {
         $violations = [];
 
+        // A board pointing at a directory that does not exist loaded zero cards and
+        // reported "Board verification passed." - success over none of its scope.
+        if ($context->cardDirectoryMissing) {
+            $violations[] = new Violation(
+                ViolationCode::MissingCardDirectory,
+                sprintf(
+                    'Configured card directory "%s" does not exist, so this board has no cards to verify.',
+                    $board->config->cardDirectory,
+                ),
+                Severity::Error,
+            );
+        }
+
         // A board whose preferred and legacy directories are the same path is not
         // ambiguous; reporting it produced 'Both "todo/jira" and "todo/jira" exist'.
         if ($context->bothCardDirectoriesExist

@@ -24,6 +24,39 @@ final class BoardConfigTest extends TestCase
         self::assertFalse($config->supportsLane(Lane::fromString('DONE')));
     }
 
+    public function testExplicitCardDirectoryDoesNotInheritTheGlobalLegacyDefault(): void
+    {
+        // In a multi-board repository `todo/jira` is another board's directory.
+        // Inheriting it made a board whose own directory was missing silently
+        // resolve to, verify and write that other board's cards.
+        $config = BoardConfig::fromArray([
+            'projectPrefix' => 'FOL',
+            'cardDirectory' => 'todo/followups',
+        ]);
+
+        self::assertSame('todo/followups', $config->cardDirectory);
+        self::assertSame('todo/followups', $config->legacyCardDirectory);
+    }
+
+    public function testAnExplicitLegacyDirectoryIsStillHonored(): void
+    {
+        $config = BoardConfig::fromArray([
+            'projectPrefix' => 'FOL',
+            'cardDirectory' => 'todo/followups',
+            'legacyCardDirectory' => 'todo/old-followups',
+        ]);
+
+        self::assertSame('todo/old-followups', $config->legacyCardDirectory);
+    }
+
+    public function testConventionalBoardKeepsTheLegacyMigrationFallback(): void
+    {
+        $config = BoardConfig::fromArray(['projectPrefix' => 'ABC']);
+
+        self::assertSame('todo/cards', $config->cardDirectory);
+        self::assertSame('todo/jira', $config->legacyCardDirectory);
+    }
+
     public function testFromArrayHonorsOverrides(): void
     {
         $config = BoardConfig::fromArray([

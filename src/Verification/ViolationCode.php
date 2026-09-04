@@ -29,4 +29,5 @@ enum ViolationCode: string
     case IncompatibleFormatVersion = 'incompatible-format-version';
     case ArchiveConflict = 'archive-conflict';
     case SourceDirectoryAmbiguity = 'source-directory-ambiguity';
+    case MissingCardDirectory = 'missing-card-directory';
 }

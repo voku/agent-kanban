@@ -600,6 +600,7 @@ final class CliApplication
             boardMetadata: BoardMetadata::fromFile($metadataPath),
             indexContent: $indexContent === false ? null : $indexContent,
             cardDirectory: $context->repository->resolveCardDirectory(),
+            cardDirectoryMissing: $context->repository->resolveCardDirectory() === null,
         );
     }
 

@@ -204,7 +204,11 @@ final class MarkdownCardRepository
 
     public function findExistingPath(CardId $id): ?string
     {
-        foreach ([$this->config->cardDirectory, $this->config->legacyCardDirectory] as $directory) {
+        $directories = $this->config->cardDirectory === $this->config->legacyCardDirectory
+            ? [$this->config->cardDirectory]
+            : [$this->config->cardDirectory, $this->config->legacyCardDirectory];
+
+        foreach ($directories as $directory) {
             $candidate = $this->absolutePath($directory . '/' . $id->toString() . '.md');
             if (is_file($candidate) && !is_link($candidate)) {
                 return $candidate;

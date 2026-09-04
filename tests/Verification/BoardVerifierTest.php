@@ -175,6 +175,20 @@ final class BoardVerifierTest extends TestCase
         self::assertNotContainsViolation($report, ViolationCode::SourceDirectoryAmbiguity);
     }
 
+    public function testMissingCardDirectoryIsAnError(): void
+    {
+        // Verifying a board whose configured directory does not exist reported
+        // "Board verification passed." over none of its scope.
+        $config = new BoardConfig('ABC', cardDirectory: 'todo/absent');
+        $board = new Board($config, CardCollection::empty(), 'todo/absent');
+        $context = new BoardVerificationContext(cardDirectoryMissing: true);
+
+        $report = (new BoardVerifier())->verify($board, [], $context);
+
+        self::assertFalse($report->isValid(), 'a board with no card directory must not verify as green');
+        self::assertContainsViolation($report, ViolationCode::MissingCardDirectory);
+    }
+
     public function testArchiveConflictDetected(): void
     {
         $config = BoardConfig::default('ABC');

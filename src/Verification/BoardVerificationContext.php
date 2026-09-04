@@ -25,6 +25,8 @@ final readonly class BoardVerificationContext
         public ?BoardMetadata $boardMetadata = null,
         public ?string $indexContent = null,
         public ?string $cardDirectory = null,
+        /** Whether the producer determined that no configured card directory exists on disk. */
+        public bool $cardDirectoryMissing = false,
     ) {
     }
 }
