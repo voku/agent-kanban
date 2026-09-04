@@ -89,6 +89,17 @@ final class MultiBoardCliTest extends TestCase
         self::assertNotSame(0, $result['exit'], 'a broken non-default board must fail verify');
     }
 
+    public function testVerifyWithBoardMetadataForOneBoardDoesNotFailOtherBoards(): void
+    {
+        file_put_contents($this->root . '/todo/board.md', "# Board Metadata\n\n- **Project prefix:** `AAA`\n- **Source:** `todo/first/*.md`\n- **Done count:** 10\n");
+
+        $result = $this->runCli(['verify']);
+
+        self::assertSame(0, $result['exit'], $result['stderr']);
+        self::assertStringContainsString('first', $result['stdout']);
+        self::assertStringContainsString('second', $result['stdout']);
+    }
+
     private function writeCard(string $relativePath, string $id, string $lane): void
     {
         file_put_contents($this->root . '/' . $relativePath, <<<CARD

@@ -25,6 +25,7 @@ use voku\AgentKanban\Query\BoardQueryService;
 use voku\AgentKanban\Rendering\BoardRenderer;
 use voku\AgentKanban\Rendering\JsonBoardRenderer;
 use voku\AgentKanban\Rendering\RenderOptions;
+use voku\AgentKanban\Repository\BoardContextResolver;
 use voku\AgentKanban\Repository\BoardMetadata;
 use voku\AgentKanban\Verification\BoardVerificationContext;
 use voku\AgentKanban\Verification\BoardVerifier;
@@ -585,19 +586,74 @@ final class CliApplication
             }
         }
 
+        $otherPrefixes = [];
+        $otherDirectories = [];
+        try {
+            $allConfigs = (new BoardContextResolver())->resolveAll($context->rootPath);
+            if (count($allConfigs) > 1) {
+                foreach ($allConfigs as $other) {
+                    if ($other->config->id !== $context->config->id && $other->config->projectPrefix !== $context->config->projectPrefix) {
+                        $otherPrefixes[] = $other->config->projectPrefix;
+                        $otherDirectories[] = $other->config->cardDirectory;
+                        $otherDirectories[] = $other->config->legacyCardDirectory;
+                    }
+                }
+            }
+        } catch (\Throwable) {
+        }
+
         $indexPath = is_file($context->rootPath . '/board.md')
             ? $context->rootPath . '/board.md'
             : $context->rootPath . '/TODO.md';
         $indexContent = is_file($indexPath) ? file_get_contents($indexPath) : false;
+        if ($indexContent !== false && $otherDirectories !== []) {
+            $cardDir = $context->repository->resolveCardDirectory() ?? $context->config->cardDirectory;
+            if (!str_contains($indexContent, $cardDir . '/')) {
+                foreach ($otherDirectories as $otherDir) {
+                    if (str_contains($indexContent, $otherDir . '/')) {
+                        $indexContent = false;
+                        break;
+                    }
+                }
+            }
+        }
 
-        $metadataPath = is_file($context->rootPath . '/board.md')
-            ? $context->rootPath . '/board.md'
-            : $context->rootPath . '/todo/board.md';
+        $candidateMetadataPaths = [];
+        if ($context->config->id !== null) {
+            $candidateMetadataPaths[] = $context->rootPath . '/todo/' . $context->config->id . '-board.md';
+            $candidateMetadataPaths[] = $context->rootPath . '/todo/board-' . $context->config->id . '.md';
+            $candidateMetadataPaths[] = $context->rootPath . '/' . $context->config->id . '-board.md';
+        }
+        $candidateMetadataPaths[] = $context->rootPath . '/todo/' . $context->config->projectPrefix . '-board.md';
+        $candidateMetadataPaths[] = $context->rootPath . '/board.md';
+        $candidateMetadataPaths[] = $context->rootPath . '/todo/board.md';
+
+        $metadataPath = null;
+        foreach ($candidateMetadataPaths as $candidate) {
+            if (is_file($candidate)) {
+                $metadataPath = $candidate;
+                break;
+            }
+        }
+
+        $boardMetadata = $metadataPath !== null ? BoardMetadata::fromFile($metadataPath) : null;
+        if ($boardMetadata !== null && $otherPrefixes !== []) {
+            if ($boardMetadata->projectPrefix !== null && in_array($boardMetadata->projectPrefix, $otherPrefixes, true)) {
+                $boardMetadata = null;
+            } elseif ($boardMetadata->source !== null) {
+                foreach ($otherDirectories as $otherDir) {
+                    if (str_contains($boardMetadata->source, $otherDir)) {
+                        $boardMetadata = null;
+                        break;
+                    }
+                }
+            }
+        }
 
         return new BoardVerificationContext(
             archivedCardIds: $archivedCardIds,
             bothCardDirectoriesExist: $preferredExists && $legacyExists,
-            boardMetadata: BoardMetadata::fromFile($metadataPath),
+            boardMetadata: $boardMetadata,
             indexContent: $indexContent === false ? null : $indexContent,
             cardDirectory: $context->repository->resolveCardDirectory(),
             cardDirectoryMissing: $context->repository->resolveCardDirectory() === null,
