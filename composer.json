@@ -8,10 +8,27 @@
     "issues": "https://github.com/voku/agent-kanban/issues",
     "source": "https://github.com/voku/agent-kanban"
   },
+  "keywords": [
+    "agent",
+    "coding-agent",
+    "kanban",
+    "todo",
+    "task-management",
+    "markdown",
+    "ai",
+    "llm",
+    "git-native"
+  ],
   "authors": [
     {
       "name": "Lars Moelleken",
       "homepage": "https://github.com/voku"
+    }
+  ],
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/voku"
     }
   ],
   "require": {

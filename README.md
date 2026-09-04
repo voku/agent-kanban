@@ -1,5 +1,14 @@
 # agent-kanban
 
+[![Build Status](https://github.com/voku/agent-kanban/actions/workflows/ci.yml/badge.svg)](https://github.com/voku/agent-kanban/actions)
+[![Latest Stable Version](https://poser.pugx.org/voku/agent-kanban/v/stable)](https://packagist.org/packages/voku/agent-kanban)
+[![Total Downloads](https://poser.pugx.org/voku/agent-kanban/downloads)](https://packagist.org/packages/voku/agent-kanban)
+[![Monthly Downloads](https://poser.pugx.org/voku/agent-kanban/d/monthly)](https://packagist.org/packages/voku/agent-kanban)
+[![License](https://poser.pugx.org/voku/agent-kanban/license)](https://packagist.org/packages/voku/agent-kanban)
+[![PHP Version Require](https://poser.pugx.org/voku/agent-kanban/require/php)](https://packagist.org/packages/voku/agent-kanban)
+[![GitHub Stars](https://img.shields.io/github/stars/voku/agent-kanban?style=flat-square)](https://github.com/voku/agent-kanban/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/voku/agent-kanban?style=flat-square)](https://github.com/voku/agent-kanban/network/members)
+
 A strict PHP library and CLI for **Git-native, coding-agent Kanban boards**:
 human-readable and human-editable Markdown card files, one file per task,
 deterministic parsing and verification, safe conflict-aware mutations, and
