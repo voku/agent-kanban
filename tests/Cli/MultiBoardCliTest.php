@@ -104,6 +104,7 @@ final class MultiBoardCliTest extends TestCase
 
     /**
      * @param list<string> $args
+     *
      * @return array{exit: int, stdout: string, stderr: string}
      */
     private function runCli(array $args): array
