@@ -23,9 +23,18 @@ final readonly class BoardContextResolver
         ?string $configOption = null,
         ?string $boardId = null,
     ): BoardContext {
-        $context = $this->resolveOptional($defaultRootPath, $rootOption, $configOption, $boardId);
-        if ($context !== null) {
-            return $context;
+        return $this->resolveWithProvenance($defaultRootPath, $rootOption, $configOption, $boardId)->context;
+    }
+
+    public function resolveWithProvenance(
+        string $defaultRootPath,
+        ?string $rootOption = null,
+        ?string $configOption = null,
+        ?string $boardId = null,
+    ): BoardContextResolution {
+        $resolution = $this->resolveOptionalWithProvenance($defaultRootPath, $rootOption, $configOption, $boardId);
+        if ($resolution !== null) {
+            return $resolution;
         }
 
         throw new ConfigurationException(
@@ -41,16 +50,31 @@ final readonly class BoardContextResolver
         ?string $configOption = null,
         ?string $boardId = null,
     ): ?BoardContext {
+        return $this->resolveOptionalWithProvenance($defaultRootPath, $rootOption, $configOption, $boardId)?->context;
+    }
+
+    public function resolveOptionalWithProvenance(
+        string $defaultRootPath,
+        ?string $rootOption = null,
+        ?string $configOption = null,
+        ?string $boardId = null,
+    ): ?BoardContextResolution {
         $rootPath = $rootOption === '/' ? '/' : ($rootOption !== null ? rtrim($rootOption, '/') : $defaultRootPath);
-        $config = $this->resolveConfigOrNull($rootPath, $configOption, $boardId);
-        if ($config === null) {
+        $resolvedConfig = $this->resolveConfigResolutionOrNull($rootPath, $configOption, $boardId);
+        if ($resolvedConfig === null) {
             return null;
         }
 
-        return new BoardContext(
-            $rootPath,
-            $config,
-            new MarkdownCardRepository($rootPath, $config),
+        $config = $resolvedConfig['config'];
+
+        return new BoardContextResolution(
+            new BoardContext(
+                $rootPath,
+                $config,
+                new MarkdownCardRepository($rootPath, $config),
+            ),
+            $resolvedConfig['mode'],
+            $resolvedConfig['source_path'],
         );
     }
 
@@ -118,18 +142,41 @@ final readonly class BoardContextResolver
 
     private function resolveConfigOrNull(string $rootPath, ?string $configOption, ?string $boardId = null): ?BoardConfig
     {
+        return $this->resolveConfigResolutionOrNull($rootPath, $configOption, $boardId)['config'] ?? null;
+    }
+
+    /**
+     * @return array{config: BoardConfig, mode: BoardConfigurationMode, source_path: string|null}|null
+     */
+    private function resolveConfigResolutionOrNull(
+        string $rootPath,
+        ?string $configOption,
+        ?string $boardId = null,
+    ): ?array {
         if ($configOption !== null) {
-            return BoardConfig::fromJsonFile($configOption, $boardId);
+            return [
+                'config' => BoardConfig::fromJsonFile($configOption, $boardId),
+                'mode' => BoardConfigurationMode::JSON,
+                'source_path' => $configOption,
+            ];
         }
 
         $conventionalPath = $rootPath . '/' . self::DEFAULT_CONFIG_FILE;
         if (is_file($conventionalPath)) {
-            return BoardConfig::fromJsonFile($conventionalPath, $boardId);
+            return [
+                'config' => BoardConfig::fromJsonFile($conventionalPath, $boardId),
+                'mode' => BoardConfigurationMode::JSON,
+                'source_path' => $conventionalPath,
+            ];
         }
 
         $directPath = $rootPath . '/kanban.config.json';
         if (is_file($directPath)) {
-            return BoardConfig::fromJsonFile($directPath, $boardId);
+            return [
+                'config' => BoardConfig::fromJsonFile($directPath, $boardId),
+                'mode' => BoardConfigurationMode::JSON,
+                'source_path' => $directPath,
+            ];
         }
 
         $metadataPaths = [
@@ -137,17 +184,27 @@ final readonly class BoardContextResolver
             $rootPath . '/board.md',
         ];
         foreach ($metadataPaths as $metadataPath) {
-            if (is_file($metadataPath)) {
-                $metadata = BoardMetadata::fromFile($metadataPath);
-                if ($metadata->projectPrefix !== null) {
-                    return BoardConfig::default($metadata->projectPrefix);
-                }
+            if (!is_file($metadataPath)) {
+                continue;
+            }
+
+            $metadata = BoardMetadata::fromFile($metadataPath);
+            if ($metadata->projectPrefix !== null) {
+                return [
+                    'config' => BoardConfig::default($metadata->projectPrefix),
+                    'mode' => BoardConfigurationMode::METADATA,
+                    'source_path' => $metadataPath,
+                ];
             }
         }
 
         $inferred = ProjectPrefixInference::infer($rootPath);
         if ($inferred !== null) {
-            return BoardConfig::default($inferred);
+            return [
+                'config' => BoardConfig::default($inferred),
+                'mode' => BoardConfigurationMode::INFERRED,
+                'source_path' => null,
+            ];
         }
 
         return null;
