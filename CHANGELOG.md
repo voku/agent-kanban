@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.4.1 - 2026-09-05
+
+### Added
+
+- `BoardContextResolver::resolveOptional()` gives embedding consumers a typed
+  optional-board contract: it returns `null` only when no config, board metadata,
+  or card-prefix evidence resolves a board, while malformed existing board
+  configuration still fails with `ConfigurationException`. Consumers no longer
+  need to reconstruct private board paths or match resolver error text merely to
+  distinguish "no board here" from "broken board".
+
 ## 0.4.0 - 2026-09-04
 
 ### Added
