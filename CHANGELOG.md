@@ -184,7 +184,7 @@ The on-disk board format is unchanged and fully backward compatible — see
   `CardRevision`, `Claim`, `ExternalIssueRef`, `CardCollection`) parsed
   directly from card files — no intermediate generated Markdown.
 - `Config\BoardConfig`: project prefix, lanes, status-to-lane mapping, WIP
-  limits, required fields, transitions, format version, archive
+  limits, required fields per lane, transitions, format version, archive
   directory, external-issue system name. Nothing project-specific is
   hard-coded in the engine anymore.
 - `Repository\CardParser` / `CardSerializer`: a formally specified,
