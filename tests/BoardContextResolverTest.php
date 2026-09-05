@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace voku\AgentKanban\Tests;
 
 use PHPUnit\Framework\TestCase;
+use voku\AgentKanban\Exception\ConfigurationException;
 use voku\AgentKanban\Repository\BoardContextResolver;
 
 final class BoardContextResolverTest extends TestCase
@@ -113,6 +114,23 @@ final class BoardContextResolverTest extends TestCase
         $context = (new BoardContextResolver())->resolve($this->root);
 
         self::assertSame('FLAT', $context->config->projectPrefix);
+    }
+
+    public function testOptionalResolutionReturnsNullWhenNoBoardEvidenceExists(): void
+    {
+        $context = (new BoardContextResolver())->resolveOptional($this->root);
+
+        self::assertNull($context);
+    }
+
+    public function testOptionalResolutionDoesNotHideMalformedExistingConfig(): void
+    {
+        file_put_contents($this->root . '/todo/kanban.config.json', '{not-json');
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage('Invalid JSON in config file');
+
+        (new BoardContextResolver())->resolveOptional($this->root);
     }
 
     public function testResolvesMultiBoardConfiguration(): void

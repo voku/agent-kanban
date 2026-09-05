@@ -23,8 +23,29 @@ final readonly class BoardContextResolver
         ?string $configOption = null,
         ?string $boardId = null,
     ): BoardContext {
+        $context = $this->resolveOptional($defaultRootPath, $rootOption, $configOption, $boardId);
+        if ($context !== null) {
+            return $context;
+        }
+
+        throw new ConfigurationException(
+            'Could not determine the project prefix. Provide --config=<path>, '
+            . 'add "- **Project prefix:** X" to todo/board.md or board.md, or add a '
+            . 'kanban.config.json with a "projectPrefix" key.',
+        );
+    }
+
+    public function resolveOptional(
+        string $defaultRootPath,
+        ?string $rootOption = null,
+        ?string $configOption = null,
+        ?string $boardId = null,
+    ): ?BoardContext {
         $rootPath = $rootOption === '/' ? '/' : ($rootOption !== null ? rtrim($rootOption, '/') : $defaultRootPath);
-        $config = $this->resolveConfig($rootPath, $configOption, $boardId);
+        $config = $this->resolveConfigOrNull($rootPath, $configOption, $boardId);
+        if ($config === null) {
+            return null;
+        }
 
         return new BoardContext(
             $rootPath,
@@ -83,6 +104,20 @@ final readonly class BoardContextResolver
 
     private function resolveConfig(string $rootPath, ?string $configOption, ?string $boardId = null): BoardConfig
     {
+        $config = $this->resolveConfigOrNull($rootPath, $configOption, $boardId);
+        if ($config !== null) {
+            return $config;
+        }
+
+        throw new ConfigurationException(
+            'Could not determine the project prefix. Provide --config=<path>, '
+            . 'add "- **Project prefix:** X" to todo/board.md or board.md, or add a '
+            . 'kanban.config.json with a "projectPrefix" key.',
+        );
+    }
+
+    private function resolveConfigOrNull(string $rootPath, ?string $configOption, ?string $boardId = null): ?BoardConfig
+    {
         if ($configOption !== null) {
             return BoardConfig::fromJsonFile($configOption, $boardId);
         }
@@ -115,10 +150,6 @@ final readonly class BoardContextResolver
             return BoardConfig::default($inferred);
         }
 
-        throw new ConfigurationException(
-            'Could not determine the project prefix. Provide --config=<path>, '
-            . 'add "- **Project prefix:** X" to todo/board.md or board.md, or add a '
-            . 'kanban.config.json with a "projectPrefix" key.',
-        );
+        return null;
     }
 }
