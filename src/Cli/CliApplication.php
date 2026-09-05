@@ -29,6 +29,7 @@ use voku\AgentKanban\Repository\BoardContextResolver;
 use voku\AgentKanban\Repository\BoardMetadata;
 use voku\AgentKanban\Verification\BoardVerificationContext;
 use voku\AgentKanban\Verification\BoardVerifier;
+use voku\AgentKanban\Verification\VerificationReport;
 
 /**
  * The `agent-kanban` command-line entry point. Every command here is a thin
@@ -222,11 +223,24 @@ final class CliApplication
             return $this->cmdVerify($context, $output);
         }
 
+        if ($output->isJson()) {
+            $allViolations = [];
+            foreach ($contexts as $boardContext) {
+                $report = $this->runVerification($boardContext);
+                foreach ($report->violations as $violation) {
+                    $allViolations[] = $violation;
+                }
+            }
+            $combinedReport = new VerificationReport($allViolations);
+            $json = new JsonBoardRenderer();
+            echo $json->encode($json->verificationReportToArray($combinedReport), $output->compact);
+
+            return $combinedReport->isValid() ? self::EXIT_OK : self::EXIT_VERIFICATION_FAILED;
+        }
+
         $exit = self::EXIT_OK;
         foreach ($contexts as $id => $boardContext) {
-            if (!$output->isJson()) {
-                echo 'Board "' . $id . '":' . "\n";
-            }
+            echo 'Board "' . $id . '":' . "\n";
             $boardExit = $this->cmdVerify($boardContext, $output);
             if ($boardExit !== self::EXIT_OK) {
                 $exit = $boardExit;
@@ -236,13 +250,18 @@ final class CliApplication
         return $exit;
     }
 
-    private function cmdVerify(BoardContext $context, OutputOptions $output): int
+    private function runVerification(BoardContext $context): VerificationReport
     {
         $lenient = $context->repository->loadAllLenient();
         $board = new Board($context->config, $lenient->cards, $context->repository->resolveCardDirectory() ?? $context->config->cardDirectory);
         $verificationContext = $this->buildVerificationContext($context);
 
-        $report = (new BoardVerifier())->verify($board, $lenient->failures, $verificationContext);
+        return (new BoardVerifier())->verify($board, $lenient->failures, $verificationContext);
+    }
+
+    private function cmdVerify(BoardContext $context, OutputOptions $output): int
+    {
+        $report = $this->runVerification($context);
 
         if ($output->isJson()) {
             $json = new JsonBoardRenderer();

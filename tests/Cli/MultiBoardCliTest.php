@@ -100,6 +100,19 @@ final class MultiBoardCliTest extends TestCase
         self::assertStringContainsString('second', $result['stdout']);
     }
 
+    public function testVerifyWithJsonFormatProducesSingleValidReportAcrossAllBoards(): void
+    {
+        $result = $this->runCli(['verify', '--format=json']);
+
+        self::assertSame(0, $result['exit'], $result['stderr']);
+        $decoded = json_decode($result['stdout'], true);
+        self::assertSame(JSON_ERROR_NONE, json_last_error(), 'Output must be a single valid JSON document: ' . $result['stdout']);
+        self::assertIsArray($decoded);
+        self::assertSame('verification-report', $decoded['type'] ?? null);
+        self::assertTrue($decoded['isValid'] ?? null);
+        self::assertCount(2, $decoded['violations'] ?? []);
+    }
+
     private function writeCard(string $relativePath, string $id, string $lane): void
     {
         file_put_contents($this->root . '/' . $relativePath, <<<CARD
