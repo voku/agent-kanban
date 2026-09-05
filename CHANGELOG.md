@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.4.2 - 2026-09-05
+
+### Added
+
+- `BoardContextResolver::resolveWithProvenance()` and
+  `resolveOptionalWithProvenance()` expose the configuration evidence already
+  used during canonical board resolution. Embedding consumers receive a typed
+  `BoardConfigurationMode` (`json`, `metadata`, or `inferred`) plus the exact
+  winning config/metadata source path when one exists, without reconstructing
+  Kanban-private paths themselves. Existing `resolve()` and `resolveOptional()`
+  behavior remains unchanged.
+
 ## 0.4.1 - 2026-09-05
 
 ### Added
