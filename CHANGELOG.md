@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.4.3 - 2026-09-06
+
+### Added
+
+- `BoardConfigurationWriter` gives embedding consumers an owner-controlled way
+  to create the conventional board configuration from a validated `BoardConfig`.
+  Consumers no longer need to spell or serialize `todo/kanban.config.json`, and
+  existing configuration is never overwritten by bootstrap calls.
+
+### Fixed
+
+- The multi-board JSON verification regression now narrows the decoded
+  `violations` field before counting it, restoring PHPStan-max cleanliness on
+  the exact released source without changing runtime behavior.
+
 ## 0.4.2 - 2026-09-05
 
 ### Added
