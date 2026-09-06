@@ -110,7 +110,9 @@ final class MultiBoardCliTest extends TestCase
         self::assertIsArray($decoded);
         self::assertSame('verification-report', $decoded['type'] ?? null);
         self::assertTrue($decoded['isValid'] ?? null);
-        self::assertCount(2, $decoded['violations'] ?? []);
+        $violations = $decoded['violations'] ?? null;
+        self::assertIsArray($violations);
+        self::assertCount(2, $violations);
     }
 
     private function writeCard(string $relativePath, string $id, string $lane): void
