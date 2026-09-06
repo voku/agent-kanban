@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.4.4 - 2026-09-06
+
+### Added
+
+- `BoardConfigurationWriter::bootstrapConventional()` now owns the complete
+  conventional empty-board bootstrap: it creates an archive-capable default
+  configuration when needed, resolves any existing configuration as authority,
+  and initializes the resolved card/archive storage without exposing those
+  private directories to embedding consumers.
+- Bootstrap directory creation rejects symlink and non-directory path
+  components instead of silently traversing them.
+
 ## 0.4.3 - 2026-09-06
 
 ### Added
@@ -220,7 +232,7 @@ The on-disk board format is unchanged and fully backward compatible — see
   bullet fields (e.g. the legacy `Fit` field) round-trip losslessly as
   extension fields.
 - `Repository\MarkdownCardRepository`: strict (`loadAll()`) and lenient
-  (`loadAllLenient()`) loading, atomic writes (`atomicWrite()`), atomic
+  (`loadAllLenient()`), atomic writes (`atomicWrite()`), atomic
   moves (`moveFile()`, used by archive/restore), symlink-safe.
 - `Query\BoardQueryService`: typed board queries (summary, by lane/status/
   assignee/domain, search, next-pull candidates, blocked cards, WIP health)
