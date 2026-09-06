@@ -50,6 +50,26 @@ final class BoardConfigurationWriterTest extends TestCase
         self::assertSame('ABC', $resolved->config->projectPrefix);
     }
 
+    public function testBootstrapCreatesArchivableOwnerStorage(): void
+    {
+        $context = (new BoardConfigurationWriter())->bootstrapConventional($this->root, 'ABC');
+
+        self::assertSame('ABC', $context->config->projectPrefix);
+        self::assertNotNull($context->config->archiveDirectory);
+        self::assertDirectoryExists($this->root . '/' . $context->config->cardDirectory);
+        self::assertDirectoryExists($this->root . '/' . $context->config->archiveDirectory);
+    }
+
+    public function testRepeatedBootstrapUsesExistingConfigurationAsAuthority(): void
+    {
+        $writer = new BoardConfigurationWriter();
+        $first = $writer->bootstrapConventional($this->root, 'ABC');
+        $second = $writer->bootstrapConventional($this->root, 'OTHER');
+
+        self::assertSame('ABC', $first->config->projectPrefix);
+        self::assertSame('ABC', $second->config->projectPrefix);
+    }
+
     private function removeDirectory(string $path): void
     {
         if (!is_dir($path)) {
