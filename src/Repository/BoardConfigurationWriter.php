@@ -8,7 +8,7 @@ use voku\AgentKanban\Config\BoardConfig;
 use voku\AgentKanban\Exception\IoException;
 
 /**
- * Owns persistence of the conventional board configuration artifact.
+ * Owns persistence and conventional bootstrap of board configuration/storage.
  *
  * Embedding consumers may select the board root and provide a validated
  * {@see BoardConfig}; they do not need to know the owner's filename or create
@@ -18,6 +18,8 @@ final readonly class BoardConfigurationWriter
 {
     private const string CONVENTIONAL_CONFIG = 'todo/kanban.config.json';
 
+    private const string CONVENTIONAL_ARCHIVE_DIRECTORY = 'todo/archive';
+
     public function conventionalPath(string $rootPath): string
     {
         $root = $this->normalizedRoot($rootPath);
@@ -25,6 +27,34 @@ final readonly class BoardConfigurationWriter
         return $root === '/'
             ? '/' . self::CONVENTIONAL_CONFIG
             : $root . '/' . self::CONVENTIONAL_CONFIG;
+    }
+
+    /**
+     * Creates an archivable conventional board when no configuration exists,
+     * then initializes the storage directories required by the resolved board.
+     *
+     * Existing configuration stays authoritative: repeated bootstrap never
+     * overwrites it and initializes storage from the configuration that the
+     * owner actually resolves, not from the caller's requested prefix.
+     */
+    public function bootstrapConventional(string $rootPath, string $projectPrefix): BoardContext
+    {
+        $root = $this->normalizedRoot($rootPath);
+        $this->writeConventionalIfMissing(
+            $root,
+            new BoardConfig(
+                projectPrefix: $projectPrefix,
+                archiveDirectory: self::CONVENTIONAL_ARCHIVE_DIRECTORY,
+            ),
+        );
+
+        $context = (new BoardContextResolver())->resolve($root);
+        $this->ensureRelativeDirectory($root, $context->config->cardDirectory);
+        if ($context->config->archiveDirectory !== null) {
+            $this->ensureRelativeDirectory($root, $context->config->archiveDirectory);
+        }
+
+        return $context;
     }
 
     /**
@@ -99,6 +129,26 @@ final readonly class BoardConfigurationWriter
         }
 
         return true;
+    }
+
+    private function ensureRelativeDirectory(string $root, string $relativeDirectory): void
+    {
+        $current = $root;
+        foreach (explode('/', $relativeDirectory) as $segment) {
+            $current .= '/' . $segment;
+            if (is_link($current)) {
+                throw new IoException(sprintf('Refusing to use symlinked board directory: %s', $current), path: $current);
+            }
+            if (is_dir($current)) {
+                continue;
+            }
+            if (file_exists($current)) {
+                throw new IoException(sprintf('Board directory path is not a directory: %s', $current), path: $current);
+            }
+            if (!mkdir($current, 0o775) && !is_dir($current)) {
+                throw new IoException(sprintf('Could not create board directory: %s', $current), path: $current);
+            }
+        }
     }
 
     private function normalizedRoot(string $rootPath): string
