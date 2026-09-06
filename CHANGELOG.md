@@ -232,7 +232,7 @@ The on-disk board format is unchanged and fully backward compatible — see
   bullet fields (e.g. the legacy `Fit` field) round-trip losslessly as
   extension fields.
 - `Repository\MarkdownCardRepository`: strict (`loadAll()`) and lenient
-  (`loadAllLenient()`), atomic writes (`atomicWrite()`), atomic
+  (`loadAllLenient()`) loading, atomic writes (`atomicWrite()`), atomic
   moves (`moveFile()`, used by archive/restore), symlink-safe.
 - `Query\BoardQueryService`: typed board queries (summary, by lane/status/
   assignee/domain, search, next-pull candidates, blocked cards, WIP health)
