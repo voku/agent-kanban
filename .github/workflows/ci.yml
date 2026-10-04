@@ -33,7 +33,7 @@ jobs:
           composer test 2>&1 | tee phpunit-${{ matrix.php }}.log
       - name: Upload PHPUnit diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phpunit-${{ matrix.php }}
           path: phpunit-${{ matrix.php }}.log
@@ -44,7 +44,7 @@ jobs:
           composer phpstan 2>&1 | tee phpstan-${{ matrix.php }}.log
       - name: Upload PHPStan diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phpstan-${{ matrix.php }}
           path: phpstan-${{ matrix.php }}.log
@@ -55,7 +55,7 @@ jobs:
           composer cs-check 2>&1 | tee cs-${{ matrix.php }}.log
       - name: Upload coding-style diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cs-${{ matrix.php }}
           path: cs-${{ matrix.php }}.log
