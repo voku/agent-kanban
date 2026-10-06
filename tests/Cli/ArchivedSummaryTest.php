@@ -99,6 +99,7 @@ final class ArchivedSummaryTest extends TestCase
         return "# {$id}: Title\n\n- **Ticket:** {$id}\n- **Lane:** BACKLOG\n";
     }
 
+    /** @phpstan-impure */
     private function doneCount(string $root): int
     {
         $result = $this->runCli(['summary', '--format=json'], $root);
