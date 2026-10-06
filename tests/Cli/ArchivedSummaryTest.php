@@ -70,7 +70,7 @@ final class ArchivedSummaryTest extends TestCase
 
         file_put_contents($caseDistinctDuplicate, $this->minimalCard('ABC-1'));
 
-        self::assertSame(1, $this->doneCount($root));
+        self::assertTrue($this->doneCount($root) === 1);
     }
 
     private function boardWithArchive(): string
@@ -99,6 +99,7 @@ final class ArchivedSummaryTest extends TestCase
         return "# {$id}: Title\n\n- **Ticket:** {$id}\n- **Lane:** BACKLOG\n";
     }
 
+    /** @phpstan-impure */
     private function doneCount(string $root): int
     {
         $result = $this->runCli(['summary', '--format=json'], $root);
