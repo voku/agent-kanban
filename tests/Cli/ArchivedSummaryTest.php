@@ -70,7 +70,7 @@ final class ArchivedSummaryTest extends TestCase
 
         file_put_contents($caseDistinctDuplicate, $this->minimalCard('ABC-1'));
 
-        self::assertSame(1, $this->doneCount($root));
+        self::assertTrue($this->doneCount($root) === 1);
     }
 
     private function boardWithArchive(): string
