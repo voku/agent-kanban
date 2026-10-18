@@ -245,4 +245,20 @@ final class CardParserTest extends TestCase
 
         self::assertSame('ABC-4', $this->parser->parse($content, 'todo/cards/ABC-4.md')->id->toString());
     }
+
+    public function testConflictMarkersInsideACodeFenceStillFailClosed(): void
+    {
+        $content = "# ABC-5: Sample\n\n- **Ticket:** ABC-5\n- **Lane:** READY\n- **Status:** Selected\n\n```\n<<<<<<< HEAD\nleft\n=======\nright\n>>>>>>> branch\n```\n";
+
+        $this->expectException(ValidationException::class);
+
+        $this->parser->parse($content, 'todo/cards/ABC-5.md');
+    }
+
+    public function testAQuotedConflictExampleIsAcceptedWhenIndented(): void
+    {
+        $content = "# ABC-6: Sample\n\n- **Ticket:** ABC-6\n- **Lane:** READY\n- **Status:** Selected\n\nA conflict looks like:\n\n    <<<<<<< HEAD\n    left\n    =======\n    right\n    >>>>>>> branch\n";
+
+        self::assertSame('ABC-6', $this->parser->parse($content, 'todo/cards/ABC-6.md')->id->toString());
+    }
 }
