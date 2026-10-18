@@ -64,4 +64,12 @@ final class CardIdGeneratorTest extends TestCase
 
         self::assertFalse($a->equals($b));
     }
+
+    public function testRefusesA32BitBuildInsteadOfSilentlyShrinkingTheIdSpace(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('64-bit PHP build');
+
+        (new CardIdGenerator(new Randomizer(), 4))->generate('TEST', static fn (CardId $candidate): bool => false);
+    }
 }

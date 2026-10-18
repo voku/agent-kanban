@@ -348,7 +348,7 @@ final class CliApplication
                 return self::EXIT_USAGE_ERROR;
             }
             $cardIdValue = (new CardIdGenerator())
-                ->generate($context->config->projectPrefix, $context->repository->exists(...))
+                ->generate($context->config->projectPrefix, $context->repository->isIdentityOccupied(...))
                 ->toString();
         }
 
