@@ -47,6 +47,15 @@ bits) and refuses to run on a 32-bit one. Explicitly re-creating the ID of an
 archived card is not blocked at creation time; `verify` reports it as
 `archive-conflict`.
 
+## Unresolved merge conflicts
+
+A card file with a line that starts with `<<<<<<<` or `>>>>>>>` at column 0 is an
+unfinished Git merge. Reading it fails and `verify` reports
+`unresolved-merge-conflict` (exit non-zero), also when the markers sit inside a
+code fence, because a real conflict can. To quote conflict markers as an example,
+indent the line (one leading space is enough); `=======` alone is never treated as
+a marker because it is also a valid Markdown setext underline.
+
 ## Structure
 
 ```markdown

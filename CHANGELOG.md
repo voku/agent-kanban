@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - `CardId` no longer silently saturates a number above `PHP_INT_MAX`: `PREFIX-9223372036854775808` is now rejected as an invalid ID instead of being accepted with a wrong `number`.
+- A card file that still contains unresolved Git merge-conflict markers (`<<<<<<<` / `>>>>>>>` at the start of a line) is now rejected when read, and `verify` reports it as the new stable violation code `unresolved-merge-conflict` and exits non-zero. Previously `verify` printed "Board verification passed." for a board in the middle of an `add/add` merge conflict. `=======` is not checked because it is also a valid Markdown setext underline.
 
 ## 0.4.4 - 2026-09-06
 
