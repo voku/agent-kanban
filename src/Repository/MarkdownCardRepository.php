@@ -218,6 +218,25 @@ final class MarkdownCardRepository
         return null;
     }
 
+    /**
+     * Whether the identity is already taken by a live card (active or legacy directory) or by an
+     * archived one. Archived cards keep their ID: reusing it would make `verify` report an
+     * `archive-conflict` only after the damage is done.
+     */
+    public function isIdentityOccupied(CardId $id): bool
+    {
+        if ($this->exists($id)) {
+            return true;
+        }
+        if ($this->config->archiveDirectory === null) {
+            return false;
+        }
+
+        $archived = $this->absolutePath($this->config->archiveDirectory . '/' . $id->toString() . '.md');
+
+        return is_file($archived) || is_link($archived);
+    }
+
     public function pathForNewCard(CardId $id): string
     {
         return $this->absolutePath($this->config->cardDirectory . '/' . $id->toString() . '.md');

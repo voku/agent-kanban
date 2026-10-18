@@ -51,6 +51,8 @@ final class CardIdTest extends TestCase
         yield 'negative number' => ['ABC--1'];
         yield 'empty' => [''];
         yield 'whitespace only' => ['   '];
+        yield 'number above PHP_INT_MAX' => ['ABC-9223372036854775808'];
+        yield 'far above PHP_INT_MAX' => ['ABC-99999999999999999999'];
     }
 
     #[DataProvider('invalidIdProvider')]
@@ -70,5 +72,13 @@ final class CardIdTest extends TestCase
     {
         $this->expectException(ValidationException::class);
         CardId::of('ABC', 0);
+    }
+
+    public function testAcceptsTheLargestRepresentableNumber(): void
+    {
+        $id = CardId::fromString('ABC-' . PHP_INT_MAX);
+
+        self::assertSame(PHP_INT_MAX, $id->number);
+        self::assertSame('ABC-' . PHP_INT_MAX, $id->toString());
     }
 }

@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Throwable;
 use voku\AgentKanban\Board;
 use voku\AgentKanban\Domain\CardId;
+use voku\AgentKanban\Domain\CardIdGenerator;
 use voku\AgentKanban\Domain\CardRevision;
 use voku\AgentKanban\Domain\CardStatus;
 use voku\AgentKanban\Domain\Lane;
@@ -72,7 +73,7 @@ final class CliApplication
     /** @var array<string, list<string>> */
     private const array CARD_SUBCOMMAND_OPTIONS = [
         'show'    => ['fields'],
-        'create'  => ['title', 'lane', 'status', 'summary', 'next', 'validation', 'brief', 'dry-run'],
+        'create'  => ['title', 'lane', 'status', 'summary', 'next', 'validation', 'brief', 'dry-run', 'generate-id'],
         'update'  => [
             'title', 'status', 'domain', 'assignee', 'summary', 'next', 'validation',
             'priority', 'wave', 'brief', 'handoff', 'dry-run', 'expected-revision',
@@ -338,6 +339,18 @@ final class CliApplication
     {
         $subcommand = $positional[1] ?? '';
         $cardIdValue = $positional[2] ?? '';
+        $generateId = $subcommand === 'create' && ArgvParser::boolOption($parsed, 'generate-id');
+
+        if ($generateId) {
+            if ($cardIdValue !== '') {
+                fwrite(STDERR, "card create takes either an explicit <ID> or --generate-id, not both.\n");
+
+                return self::EXIT_USAGE_ERROR;
+            }
+            $cardIdValue = (new CardIdGenerator())
+                ->generate($context->config->projectPrefix, $context->repository->isIdentityOccupied(...))
+                ->toString();
+        }
 
         if ($subcommand === '' || $cardIdValue === '') {
             fwrite(STDERR, "Usage: agent-kanban card <show|create|update|move|claim|release|archive|restore> <ID> [options]\n");
@@ -814,7 +827,7 @@ final class CliApplication
               next-pull                           Cards with a configured pull priority, ranked.
               lane <LANE>                         Cards in one lane.
               card show <ID>                      Show one card.
-              card create <ID> --title=... [--lane=] [--status=] [--summary=] [--next=] [--validation=] [--brief=]
+              card create <ID>|--generate-id --title=... [--lane=] [--status=] [--summary=] [--next=] [--validation=] [--brief=]
               card update <ID> [--title=] [--status=] [--domain=] [--assignee=] [--summary=]
                                                    [--next=] [--validation=] [--priority=] [--wave=]
                                                    [--brief=] [--handoff=]

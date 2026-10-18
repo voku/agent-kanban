@@ -169,6 +169,36 @@ needs, or cache anything on its behalf. It only makes the narrower request
 expressible, and rejects a field selection it cannot honor rather than
 silently returning less than was asked for.
 
+## Creating a follow-up task: the card ID is the task ID
+
+On a board without an external ticket authority, an orchestrator that prepares a
+follow-up (for example `agent-loop` in `future_work.mode=invest`) must obtain the
+ID from this package and then use **that exact ID** everywhere the task is named.
+Choosing "highest number + 1" is not safe across independent Git branches: both
+branches pick the same value, collide on `<ID>.md`, and every record keyed by the
+task ID outside the board (Contract, Run, Session, Findings, commit text) points
+at the wrong task after a manual renumber.
+
+```text
+1. agent-kanban card create --generate-id --title="..." --format=json
+      -> {"type":"mutation-result","operation":"create","card":"PRJ-<63-bit number>", ...}
+2. agent-loop workflow plan <that exact card ID> ...      (Contract, Run, Session use it unchanged)
+```
+
+Rules for the orchestrator:
+
+- Take the ID from the `card` field of the create result; never derive, shorten,
+  re-sequence or "prettify" it. A different ID for the Contract than for the card
+  recreates the identity problem.
+- `agent-loop` accepts any `WorkflowTaskId`, including a free-form one that is
+  not a card; such a task is `ad_hoc_task` and is deliberately not linked to a
+  card. An ID that merely looks like a card but has no card is `not_linked`.
+- A generated ID is final. Existing IDs and external ticket IDs are never
+  renumbered, and no counter file is involved.
+
+`card create --generate-id` is available from the first agent-kanban release that
+contains `CardIdGenerator` (see `CHANGELOG.md`).
+
 ## Board reference in a governed run
 
 The cross-package run manifest belongs to `agent-loop`. Current `agent-loop`

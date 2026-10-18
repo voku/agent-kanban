@@ -4,8 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- `CardIdGenerator` and `agent-kanban card create --generate-id`: collision-resistant card IDs for boards without an external ticket authority. The number is a uniformly random positive 63-bit integer from the system CSPRNG, never derived from the board's current maximum, so independent Git branches created from the same base no longer pick the same `PREFIX-NUMBER` (and then collide on `<ID>.md` or on every task-linked record outside the board). The ID keeps the existing `PREFIX-NUMBER` shape; existing IDs, card files and external ticket IDs are unchanged, an explicit `<ID>` still works, and combining it with `--generate-id` is a usage error. Generation never hands out an ID already taken locally by an active, legacy or archived card, fails after a bounded number of attempts, and refuses to run on a 32-bit PHP build instead of silently shrinking the ID space. Documented in `docs/card-format.md` ("Choosing a card ID").
+
 ### Fixed
 
+- `CardId` no longer silently saturates a number above `PHP_INT_MAX`: `PREFIX-9223372036854775808` is now rejected as an invalid ID instead of being accepted with a wrong `number`.
 - A card file that still contains unresolved Git merge-conflict markers (`<<<<<<<` / `>>>>>>>` at the start of a line) is now rejected when read, and `verify` reports it as the new stable violation code `unresolved-merge-conflict` and exits non-zero. Previously `verify` printed "Board verification passed." for a board in the middle of an `add/add` merge conflict. `=======` is not checked because it is also a valid Markdown setext underline.
 
 ## 0.4.4 - 2026-09-06

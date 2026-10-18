@@ -39,7 +39,17 @@ final readonly class CardId
             );
         }
 
-        return new self($normalized, $matches[1], (int) $matches[2]);
+        // The pattern forbids leading zeros, so a round trip through int is exact
+        // unless the number exceeds PHP_INT_MAX (which `(int)` would saturate).
+        $number = (int) $matches[2];
+        if ((string) $number !== $matches[2]) {
+            throw new ValidationException(
+                sprintf('Invalid card ID "%s": the number must not exceed %d.', $value, PHP_INT_MAX),
+                field: 'id',
+            );
+        }
+
+        return new self($normalized, $matches[1], $number);
     }
 
     public static function of(string $prefix, int $number): self
