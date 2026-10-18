@@ -30,4 +30,5 @@ enum ViolationCode: string
     case ArchiveConflict = 'archive-conflict';
     case SourceDirectoryAmbiguity = 'source-directory-ambiguity';
     case MissingCardDirectory = 'missing-card-directory';
+    case UnresolvedMergeConflict = 'unresolved-merge-conflict';
 }

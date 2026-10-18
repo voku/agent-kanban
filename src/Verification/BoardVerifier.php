@@ -54,6 +54,8 @@ final class BoardVerifier
             $code = ViolationCode::DuplicateMetadataField;
         } elseif (str_contains($failure->message, 'Duplicate card ID')) {
             $code = ViolationCode::DuplicateCardId;
+        } elseif (str_contains($failure->message, 'Unresolved merge conflict')) {
+            $code = ViolationCode::UnresolvedMergeConflict;
         }
 
         return new Violation(

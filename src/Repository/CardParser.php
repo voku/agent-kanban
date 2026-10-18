@@ -45,6 +45,11 @@ final class CardParser
         if (str_contains($normalized, "\0")) {
             throw new ValidationException('Card content must not contain NUL bytes.', cardFile: $sourceFile);
         }
+        // `<<<<<<<` / `>>>>>>>` at the start of a line is an unresolved Git merge; `=======` is
+        // deliberately not checked because it is also a valid Markdown setext underline.
+        if (preg_match('/^(?:<{7}|>{7})(?: |$)/m', $normalized) === 1) {
+            throw new ValidationException('Unresolved merge conflict markers in card file.', cardFile: $sourceFile);
+        }
 
         $lines = explode("\n", $normalized);
         $title = $this->parseTitle($lines);

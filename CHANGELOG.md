@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- A card file that still contains unresolved Git merge-conflict markers (`<<<<<<<` / `>>>>>>>` at the start of a line) is now rejected when read, and `verify` reports it as the new stable violation code `unresolved-merge-conflict` and exits non-zero. Previously `verify` printed "Board verification passed." for a board in the middle of an `add/add` merge conflict. `=======` is not checked because it is also a valid Markdown setext underline.
+
 ## 0.4.4 - 2026-09-06
 
 ### Added

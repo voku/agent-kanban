@@ -228,4 +228,21 @@ final class CardParserTest extends TestCase
         $this->expectException(ValidationException::class);
         $this->parser->parse("# ABC-1: X\n\n- **Ticket:** ABC-1\n- **Lane:** READY\n\0", 'ABC-1.md');
     }
+
+    public function testRejectsUnresolvedGitMergeConflictMarkers(): void
+    {
+        $content = "# ABC-3: Sample\n\n<<<<<<< HEAD\n- **Ticket:** ABC-3\n=======\n- **Ticket:** ABC-3\n>>>>>>> branch\n- **Lane:** READY\n";
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Unresolved merge conflict markers');
+
+        $this->parser->parse($content, 'todo/cards/ABC-3.md');
+    }
+
+    public function testSetextUnderlineIsNotMistakenForAConflictMarker(): void
+    {
+        $content = "ABC-4: Sample\n=======\n\n- **Ticket:** ABC-4\n- **Lane:** READY\n- **Status:** Selected\n";
+
+        self::assertSame('ABC-4', $this->parser->parse($content, 'todo/cards/ABC-4.md')->id->toString());
+    }
 }
