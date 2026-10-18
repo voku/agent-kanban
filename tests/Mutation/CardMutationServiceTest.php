@@ -331,10 +331,33 @@ final class CardMutationServiceTest extends TestCase
 
         $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T');
         $service->archive(CardId::fromString('ABC-1'));
-        $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'New card with the same ID');
+        // The deliberately inconsistent state (same ID active and archived) is built directly: create() must never produce it.
+        self::assertTrue(copy($root . '/todo/archive/ABC-1.md', $root . '/todo/cards/ABC-1.md'));
 
         $this->expectException(ConflictException::class);
         $service->restore(CardId::fromString('ABC-1'));
+    }
+
+    public function testCreateRejectsAnIdThatBelongsToAnArchivedCard(): void
+    {
+        $root = $this->tempBoard();
+        $config = new BoardConfig('ABC', archiveDirectory: 'todo/archive');
+        $repository = new MarkdownCardRepository($root, $config);
+        $service = new CardMutationService($root, $config, $repository);
+        $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'T');
+        $service->archive(CardId::fromString('ABC-1'));
+
+        foreach ([false, true] as $dryRun) {
+            try {
+                $service->create(CardId::fromString('ABC-1'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'Again', dryRun: $dryRun);
+                self::fail('create() over an archived ID must conflict (dryRun=' . var_export($dryRun, true) . ').');
+            } catch (ConflictException) {
+                self::assertFileDoesNotExist($root . '/todo/cards/ABC-1.md');
+            }
+        }
+
+        $service->create(CardId::fromString('ABC-2'), Lane::fromString('BACKLOG'), CardStatus::fromString(''), 'Free ID still works');
+        self::assertFileExists($root . '/todo/cards/ABC-2.md');
     }
 
     private function service(string $root): CardMutationService

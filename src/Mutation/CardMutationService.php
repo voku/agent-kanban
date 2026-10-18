@@ -53,6 +53,12 @@ final class CardMutationService
         if (!$this->config->supportsLane($lane)) {
             throw new ValidationException(sprintf('Unsupported lane "%s".', $lane), field: 'lane', cardId: $id->toString());
         }
+        if ($this->repository->isIdentityOccupied($id)) {
+            throw new ConflictException(
+                sprintf('Card ID %s is already taken by an active or archived card.', $id),
+                cardId: $id->toString(),
+            );
+        }
 
         $now = new DateTimeImmutable();
         $card = new Card(
