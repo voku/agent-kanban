@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- `CardIdGenerator` and `agent-kanban card create --generate-id`: collision-resistant card IDs for boards without an external ticket authority. The number is a uniformly random positive 63-bit integer from the system CSPRNG, never derived from the board's current maximum, so independent Git branches created from the same base no longer pick the same `PREFIX-NUMBER` (and then collide on `<ID>.md` or on every task-linked record outside the board). The ID keeps the existing `PREFIX-NUMBER` shape; existing IDs, card files and external ticket IDs are unchanged, an explicit `<ID>` still works, and combining it with `--generate-id` is a usage error. Generation never reuses an ID that already exists locally and fails after a bounded number of attempts. Documented in `docs/card-format.md` ("Choosing a card ID").
+
+### Fixed
+
+- `CardId` no longer silently saturates a number above `PHP_INT_MAX`: `PREFIX-9223372036854775808` is now rejected as an invalid ID instead of being accepted with a wrong `number`.
+
 ## 0.4.4 - 2026-09-06
 
 ### Added
