@@ -17,11 +17,11 @@ final class ArgvParser
         'status', 'search', 'limit', 'dry-run', 'expected-revision', 'title',
         'summary', 'priority', 'wave', 'brief', 'handoff', 'next', 'validation',
         'to', 'actor', 'by', 'expires', 'move-to-doing', 'provider-class', 'query',
-        'fields', 'compact', 'board',
+        'fields', 'compact', 'board', 'generate-id',
     ];
 
     /** @var list<string> */
-    private const array BOOLEAN_OPTIONS = ['dry-run', 'move-to-doing', 'compact'];
+    private const array BOOLEAN_OPTIONS = ['dry-run', 'move-to-doing', 'compact', 'generate-id'];
 
     /**
      * @param list<string> $tokens

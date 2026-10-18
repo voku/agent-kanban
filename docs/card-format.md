@@ -18,6 +18,35 @@ place.
   zeros in the canonical form written by `CardSerializer`; a leading-zero
   filename is still read for compatibility.
 
+## Choosing a card ID
+
+The package never picks an ID for you unless you ask. Three cases:
+
+- **External ticket authority** (Jira, GitHub, ...): use that system's ticket
+  number as `<NUMBER>`. It is already unique.
+- **A single linear history** (one branch, one writer): a sequential number
+  chosen by the caller is fine.
+- **Independent Git branches without a ticket authority**: do not compute
+  "highest number + 1". Two branches created from the same base compute the
+  same value and then collide on `<PREFIX>-<NUMBER>.md` (Git `add/add`), and any
+  task-linked record outside the board (Contracts, Runs, Findings, commit text)
+  would still point at the wrong task after a manual renumber. Create the card
+  with `card create --generate-id`, or call `CardIdGenerator` directly.
+
+`CardIdGenerator` returns `<PREFIX>-<NUMBER>` with a uniformly random positive
+63-bit `<NUMBER>` from the system CSPRNG. It never reads the board's current
+maximum, never hands out an ID that is already taken locally by an active,
+legacy or archived card (it retries a bounded number of times, then fails), and
+does not coordinate across clones: the chance
+that two of n generated IDs collide is about n^2 / 2^64. Existing IDs and files
+are unaffected, and a number above `PHP_INT_MAX` is rejected as an invalid ID
+instead of being silently saturated. A human-friendly sequence, if wanted, is a
+display concern layered on top and must not be the identity. Generation needs a
+64-bit PHP build (otherwise `PHP_INT_MAX` would silently shrink the space to 31
+bits) and refuses to run on a 32-bit one. Explicitly re-creating the ID of an
+archived card is not blocked at creation time; `verify` reports it as
+`archive-conflict`.
+
 ## Structure
 
 ```markdown
