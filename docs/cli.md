@@ -20,7 +20,7 @@ class itself contains no board logic.
 | `next-pull` | Cards with a configured pull priority `> 0`, ranked ascending. |
 | `lane <LANE>` | Cards in one lane. |
 | `card show <ID>` | Show one card. |
-| `card create <ID> --title=... [--lane=] [--status=] [--summary=] [--next=] [--validation=] [--brief=]` | Create a new card (defaults: lane `BACKLOG`, empty status, next action, validation, and task brief). Use `--brief` when creating directly into a lane that requires `taskBrief`. |
+| `card create <ID>\|--generate-id --title=... [--lane=] [--status=] [--summary=] [--next=] [--validation=] [--brief=]` | Create a new card (defaults: lane `BACKLOG`, empty status, next action, validation, and task brief). Use `--brief` when creating directly into a lane that requires `taskBrief`. `--generate-id` replaces the explicit `<ID>` with a random positive 63-bit number under the board's project prefix (see `docs/card-format.md`, "Choosing a card ID"); passing both is a usage error. The created ID is in the command output. |
 | `card update <ID> [--title=] [--status=] [--domain=] [--assignee=] [--summary=] [--next=] [--validation=] [--priority=] [--wave=] [--brief=] [--handoff=]` | Update only the fields you pass. |
 | `card move <ID> --to=<LANE> [--actor=]` | Move a card; validated against `BoardConfig::$transitions`. |
 | `card claim <ID> --by=<actor> [--expires=<ISO8601>] [--move-to-doing]` | Claim a card. |
