@@ -43,9 +43,10 @@ are unaffected, and a number above `PHP_INT_MAX` is rejected as an invalid ID
 instead of being silently saturated. A human-friendly sequence, if wanted, is a
 display concern layered on top and must not be the identity. Generation needs a
 64-bit PHP build (otherwise `PHP_INT_MAX` would silently shrink the space to 31
-bits) and refuses to run on a 32-bit one. Explicitly re-creating the ID of an
-archived card is not blocked at creation time; `verify` reports it as
-`archive-conflict`.
+bits) and refuses to run on a 32-bit one. An archived card keeps its ID:
+`card create <ID>` rejects an ID that exists as an active, legacy or archived
+card (exit 3), so the `archive-conflict` state `verify` reports cannot be created
+through `create`.
 
 ## Unresolved merge conflicts
 
