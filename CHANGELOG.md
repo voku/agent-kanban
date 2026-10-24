@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## 0.4.6 - 2026-10-24
+
+### Security
+
+- Refuse lock acquisition through a symlinked lock path so lock creation cannot be redirected outside the board root.
+
 ### Fixed
 
 - `card create <ID>` (`CardMutationService::create`) now rejects an ID that belongs to an archived card, using the same `MarkdownCardRepository::isIdentityOccupied` check as generated IDs, instead of silently creating a second card that `verify` later reports as `archive-conflict`. Active and legacy duplicates keep conflicting. Restore semantics are unchanged. Fixes #50.
