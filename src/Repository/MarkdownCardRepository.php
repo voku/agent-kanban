@@ -438,6 +438,10 @@ final class MarkdownCardRepository
     private function acquireLock(string $lockPath)
     {
         while (true) {
+            if (is_link($lockPath)) {
+                throw new IoException(sprintf('Refusing to lock through a symlink: %s', $lockPath), path: $lockPath);
+            }
+
             $lock = fopen($lockPath, 'c');
             if ($lock === false) {
                 throw new IoException(sprintf('Could not open lock file: %s', $lockPath), path: $lockPath);
