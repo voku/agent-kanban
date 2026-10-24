@@ -138,6 +138,39 @@ final class MarkdownCardRepositoryTest extends TestCase
         $repository->atomicWrite($root . '/todo/cards/link.md', 'new content');
     }
 
+    public function testAtomicWriteRefusesSymlinkedLockPathWithoutTouchingItsTarget(): void
+    {
+        $root = $this->makeTempBoard();
+        mkdir($root . '/todo/cards', 0o777, true);
+        $cardPath = $root . '/todo/cards/ABC-1.md';
+        file_put_contents($cardPath, 'original card');
+
+        $outside = sys_get_temp_dir() . '/agent-kanban-lock-target-' . bin2hex(random_bytes(6));
+        file_put_contents($outside, 'outside content');
+        $lockPath = $root . '/todo/cards/.ABC-1.md.lock';
+        if (!@symlink($outside, $lockPath)) {
+            unlink($outside);
+            self::markTestSkipped('symlink() is not available.');
+        }
+
+        try {
+            try {
+                (new MarkdownCardRepository($root, BoardConfig::default('ABC')))->atomicWrite($cardPath, 'changed card');
+                self::fail('A symlinked lock path must be refused.');
+            } catch (IoException $exception) {
+                self::assertStringContainsString('Refusing to lock through a symlink', $exception->getMessage());
+            }
+
+            self::assertSame('original card', file_get_contents($cardPath));
+            self::assertSame('outside content', file_get_contents($outside));
+        } finally {
+            if (is_link($lockPath)) {
+                unlink($lockPath);
+            }
+            unlink($outside);
+        }
+    }
+
     public function testMoveFileRefusesToOverwriteExistingDestination(): void
     {
         $root = $this->makeTempBoard();
