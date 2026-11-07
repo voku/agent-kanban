@@ -338,9 +338,6 @@ final class CliApplication
     private function gitBranchName(string $rootPath): ?string
     {
         $environment = getenv();
-        if ($environment === false) {
-            return null;
-        }
 
         // Git hooks and automation may export another repository's location.
         // Keep PATH/HOME and other process settings, but never inherit Git's
