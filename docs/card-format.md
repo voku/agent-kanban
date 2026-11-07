@@ -35,20 +35,32 @@ When `card create` receives no explicit ID, it generates a collision-resistant I
 
 The CLI generates an ID when no `<ID>` is supplied, with or without `--generate-id`. Supplying both an explicit `<ID>` and `--generate-id` is a usage error. Explicit IDs are still accepted for externally assigned tickets or intentionally managed legacy workflows; neither their semantics nor existing cards change.
 
-`CardIdGenerator` returns `<PREFIX>-<NUMBER>` with a uniformly random positive
-63-bit `<NUMBER>` from the system CSPRNG. It never reads the board's current
-maximum, never hands out an ID that is already taken locally by an active,
-legacy or archived card (it retries a bounded number of times, then fails), and
-does not coordinate across clones: the chance
-that two of n generated IDs collide is about n^2 / 2^64. Existing IDs and files
-are unaffected, and a number above `PHP_INT_MAX` is rejected as an invalid ID
-instead of being silently saturated. A human-friendly sequence, if wanted, is a
-display concern layered on top and must not be the identity. Generation needs a
-64-bit PHP build (otherwise `PHP_INT_MAX` would silently shrink the space to 31
-bits) and refuses to run on a 32-bit one. An archived card keeps its ID:
-`card create <ID>` rejects an ID that exists as an active, legacy or archived
-card (exit 3), so the `archive-conflict` state `verify` reports cannot be created
-through `create`.
+`CardIdGenerator` keeps the numeric `<PREFIX>-<NUMBER>` format. When the CLI
+runs inside a Git branch, it hashes the exact **branch name** with SHA-256 and
+packs the **first 20 hash bits** into the high bits of the positive 63-bit
+number. The low **43 bits** are a fresh cryptographically secure random suffix
+(1 through `2^43 - 1`). This does not require the full hash and adds no
+separators or changes to `CardId`, the card filename, or an external ticket ID.
+The branch name is looked up from the board root's Git worktree, not the
+caller's current working directory; a branch rename changes only the namespace
+for *new* cards. The branch hash is a truncated namespace, not a proof of
+uniqueness: two branches can hash to the same 20-bit value, and two
+independent worktrees on the same branch also share those bits. The independent
+random suffix prevents deterministic collisions; for `n` cards created on one
+branch, the approximate birthday-collision probability before local retries is
+`n(n-1) / 2^44` (about 0.000000057 for 1000 cards). This is **less entropy
+than the old 63-bit fully random IDs** when many cards share a branch.
+
+When Git is unavailable, the board is not in a Git repository, or HEAD is
+detached, generation falls back to the existing full-range random 63-bit ID.
+Neither path reads the board's maximum, coordinates across clones, nor
+reuses an ID occupied locally by an active, legacy or archived card: it retries
+up to three times, then fails. An archived card keeps its ID, and explicit
+`card create <ID>` continues to reject duplicates (exit 3). Existing IDs and
+files remain untouched. A human-friendly sequence, if wanted, is a display
+concern. A 64-bit PHP build is still required to generate/read 63-bit IDs;
+32-bit builds refuse automatic generation rather than silently reducing the
+range.
 
 ## Unresolved merge conflicts
 
