@@ -340,10 +340,10 @@ final class CliApplication
         $subcommand = $positional[1] ?? '';
         $cardIdValue = $positional[2] ?? '';
         $generateId = $subcommand === 'create'
-            && ($cardIdValue === '' || ArgvParser::boolOption($parsed, 'generate-id'));
+            && (!isset($positional[2]) || ArgvParser::boolOption($parsed, 'generate-id'));
 
         if ($generateId) {
-            if ($cardIdValue !== '') {
+            if (isset($positional[2])) {
                 fwrite(STDERR, "card create takes either an explicit <ID> or --generate-id, not both.\n");
 
                 return self::EXIT_USAGE_ERROR;
