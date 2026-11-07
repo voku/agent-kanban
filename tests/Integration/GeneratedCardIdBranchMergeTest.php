@@ -46,7 +46,7 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         $created = [];
         foreach (['a', 'b'] as $branch) {
             $worktree = $this->base . '/' . $branch;
-            $result = $this->cli($worktree, ['card', 'create', '--title=follow-up from ' . $branch, '--format=json']);
+            $result = $this->cliInNewProcess($worktree, ['card', 'create', '--title=follow-up from ' . $branch, '--format=json']);
             self::assertSame(CliApplication::EXIT_OK, $result['exit'], $result['output']);
             /** @var array{card: string} $payload */
             $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
@@ -130,6 +130,36 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         $exit = (new CliApplication($root))->run(['agent-kanban', ...$arguments]);
 
         return ['exit' => $exit, 'output' => (string) ob_get_clean()];
+    }
+
+    /**
+     * Proves that each independent Git worktree uses its own real CLI process.
+     *
+     * @param list<string> $arguments
+     *
+     * @return array{exit: int, output: string}
+     */
+    private function cliInNewProcess(string $root, array $arguments): array
+    {
+        $pipes = [];
+        $process = proc_open(
+            [PHP_BINARY, dirname(__DIR__, 2) . '/bin/agent-kanban', '--root=' . $root, ...$arguments],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        self::assertIsResource($process);
+        foreach ($pipes as $pipe) {
+            self::assertIsResource($pipe);
+        }
+
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exit = proc_close($process);
+
+        return ['exit' => $exit, 'output' => (string) $stdout . ($exit === 0 ? '' : (string) $stderr)];
     }
 
     /**
