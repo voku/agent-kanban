@@ -33,7 +33,7 @@ When `card create` receives no explicit ID, it generates a collision-resistant I
   would still point at the wrong task after a manual renumber. Create the card
   with `card create --title="..."` (or the equivalent explicit `--generate-id` flag), or call `CardIdGenerator` directly.
 
-The CLI generates an ID only when no `<ID>` is supplied (or when `--generate-id` is supplied explicitly). Explicit IDs are still accepted for externally assigned tickets or intentionally managed legacy workflows; neither their semantics nor existing cards change.
+The CLI generates an ID when no `<ID>` is supplied, with or without `--generate-id`. Supplying both an explicit `<ID>` and `--generate-id` is a usage error. Explicit IDs are still accepted for externally assigned tickets or intentionally managed legacy workflows; neither their semantics nor existing cards change.
 
 `CardIdGenerator` returns `<PREFIX>-<NUMBER>` with a uniformly random positive
 63-bit `<NUMBER>` from the system CSPRNG. It never reads the board's current
