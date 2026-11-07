@@ -51,6 +51,12 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
             /** @var array{card: string} $payload */
             $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
             $created[$branch] = $payload['card'];
+            $number = (int) substr($payload['card'], strlen('TEST-'));
+            self::assertSame(
+                (int) hexdec(substr(hash('sha256', 'branch-' . $branch), 0, 5)),
+                $number >> 43,
+                'The numeric namespace must come from the actual worktree branch.',
+            );
             $this->git($worktree, 'add -A');
             $this->git($worktree, 'commit -q -m ' . escapeshellarg('follow-up ' . $branch));
         }
@@ -73,6 +79,55 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         }
         $verify = $this->cli($main, ['verify']);
         self::assertSame(CliApplication::EXIT_OK, $verify['exit'], $verify['output']);
+    }
+
+    public function testDetachedHeadStillGeneratesValidNumericCards(): void
+    {
+        $main = $this->base . '/main';
+        self::assertSame(0, $this->git($main, 'init -q -b main')[0]);
+        self::assertSame(0, $this->git($main, 'commit -q --allow-empty -m initial')[0]);
+        self::assertSame(0, $this->git($main, 'checkout -q --detach HEAD')[0]);
+        [$branchLookupStatus, $branchLookupOutput] = $this->git($main, 'symbolic-ref --quiet --short HEAD');
+        self::assertNotSame(0, $branchLookupStatus, 'Detached HEAD must not resolve to a branch name.');
+        self::assertSame('', trim($branchLookupOutput));
+
+        $result = $this->cliInNewProcess($main, ['card', 'create', '--title=detached', '--format=json']);
+
+        self::assertSame(CliApplication::EXIT_OK, $result['exit'], $result['output']);
+        /** @var array{card: string} $payload */
+        $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertMatchesRegularExpression('/^TEST-[1-9][0-9]*$/', $payload['card']);
+        self::assertFileExists($main . '/todo/cards/' . $payload['card'] . '.md');
+        self::assertSame(CliApplication::EXIT_OK, $this->cli($main, ['card', 'show', $payload['card']])['exit']);
+    }
+
+    public function testInheritedForeignGitRepositoryCannotReplaceTheBoardBranch(): void
+    {
+        $main = $this->base . '/main';
+        $foreign = $this->base . '/foreign';
+        self::assertTrue(mkdir($foreign, 0o775, true));
+        self::assertSame(0, $this->git($main, 'init -q -b board-branch')[0]);
+        self::assertSame(0, $this->git($foreign, 'init -q -b foreign-branch')[0]);
+
+        $previousGitDir = getenv('GIT_DIR');
+        $previousGitWorkTree = getenv('GIT_WORK_TREE');
+        putenv('GIT_DIR=' . $foreign . '/.git');
+        putenv('GIT_WORK_TREE=' . $foreign);
+
+        try {
+            $result = $this->cliInNewProcess($main, ['card', 'create', '--title=correct board branch', '--format=json']);
+        } finally {
+            putenv($previousGitDir === false ? 'GIT_DIR' : 'GIT_DIR=' . $previousGitDir);
+            putenv($previousGitWorkTree === false ? 'GIT_WORK_TREE' : 'GIT_WORK_TREE=' . $previousGitWorkTree);
+        }
+
+        self::assertSame(CliApplication::EXIT_OK, $result['exit'], $result['output']);
+        /** @var array{card: string} $payload */
+        $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
+        $number = (int) substr($payload['card'], strlen('TEST-'));
+
+        self::assertSame((int) hexdec(substr(hash('sha256', 'board-branch'), 0, 5)), $number >> 43);
+        self::assertNotSame((int) hexdec(substr(hash('sha256', 'foreign-branch'), 0, 5)), $number >> 43);
     }
 
     public function testExplicitGenerateIdFlagRemainsSupported(): void

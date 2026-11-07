@@ -65,6 +65,62 @@ final class CardIdGeneratorTest extends TestCase
         self::assertFalse($a->equals($b));
     }
 
+    public function testBranchHashUsesOnlyTwentyNumericBitsAndPreservesTheCardFormat(): void
+    {
+        $branch = 'feature/ldap-impact-simulator';
+        $id = (new CardIdGenerator(new Randomizer(new Mt19937(42))))->generate(
+            'TEST',
+            static fn (CardId $candidate): bool => false,
+            $branch,
+        );
+
+        $hash = (int) hexdec(substr(hash('sha256', $branch), 0, 5));
+        $randomMask = (1 << 43) - 1;
+
+        self::assertSame($hash, $id->number >> 43);
+        self::assertGreaterThanOrEqual(1, $id->number & $randomMask);
+        self::assertLessThanOrEqual($randomMask, $id->number & $randomMask);
+        self::assertLessThanOrEqual(PHP_INT_MAX, $id->number);
+        self::assertSame('TEST-' . $id->number, $id->toString());
+        self::assertTrue(CardId::fromString($id->toString())->equals($id));
+    }
+
+    public function testDifferentBranchesKeepDistinctNamespacesEvenWithIdenticalRandomSuffixes(): void
+    {
+        $exists = static fn (CardId $candidate): bool => false;
+        $first = (new CardIdGenerator(new Randomizer(new Mt19937(42))))
+            ->generate('TEST', $exists, 'feature/ldap-impact-simulator');
+        $second = (new CardIdGenerator(new Randomizer(new Mt19937(42))))
+            ->generate('TEST', $exists, 'feature/permission-search');
+
+        self::assertNotSame($first->number >> 43, $second->number >> 43);
+        self::assertSame($first->number & ((1 << 43) - 1), $second->number & ((1 << 43) - 1));
+        self::assertNotSame($first->toString(), $second->toString());
+    }
+
+    public function testSameBranchUsesFreshRandomSuffixesAndRetriesOccupiedIds(): void
+    {
+        $branch = 'feature/shared-worktree';
+        $first = (new CardIdGenerator(new Randomizer(new Mt19937(42))))
+            ->generate('TEST', static fn (CardId $candidate): bool => false, $branch);
+        $retried = (new CardIdGenerator(new Randomizer(new Mt19937(42))))
+            ->generate('TEST', static fn (CardId $candidate): bool => $candidate->equals($first), $branch);
+
+        self::assertNotSame($first->toString(), $retried->toString());
+        self::assertSame($first->number >> 43, $retried->number >> 43);
+    }
+
+    public function testMissingBranchContextKeepsExistingUniformRandomGenerator(): void
+    {
+        $expected = (new Randomizer(new Mt19937(42)))->getInt(1, PHP_INT_MAX);
+        $exists = static fn (CardId $candidate): bool => false;
+
+        self::assertSame($expected, (new CardIdGenerator(new Randomizer(new Mt19937(42))))
+            ->generate('TEST', $exists)->number);
+        self::assertSame($expected, (new CardIdGenerator(new Randomizer(new Mt19937(42))))
+            ->generate('TEST', $exists, '')->number);
+    }
+
     public function testRefusesA32BitBuildInsteadOfSilentlyShrinkingTheIdSpace(): void
     {
         $this->expectException(ValidationException::class);
