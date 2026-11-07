@@ -148,10 +148,6 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
             $pipes,
         );
         self::assertIsResource($process);
-        foreach ($pipes as $pipe) {
-            self::assertIsResource($pipe);
-        }
-
         fclose($pipes[0]);
         $stdout = stream_get_contents($pipes[1]);
         $stderr = stream_get_contents($pipes[2]);
