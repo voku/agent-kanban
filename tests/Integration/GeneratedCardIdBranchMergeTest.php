@@ -100,6 +100,16 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         self::assertSame($before, (string) file_get_contents($main . '/todo/cards/TEST-7.md'), 'The existing card must stay untouched.');
     }
 
+    public function testExplicitlyEmptyIdIsRejectedInsteadOfCreatingACard(): void
+    {
+        $main = $this->base . '/main';
+        $before = glob($main . '/todo/cards/*.md');
+        $result = $this->cli($main, ['card', 'create', '', '--title=Must not be created', '--format=json']);
+
+        self::assertSame(CliApplication::EXIT_USAGE_ERROR, $result['exit']);
+        self::assertSame($before, glob($main . '/todo/cards/*.md'));
+    }
+
     public function testExplicitIdAndGenerateIdTogetherAreRejected(): void
     {
         $main = $this->base . '/main';
