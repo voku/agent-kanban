@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed
+
+- Generate default and `--generate-id` card IDs as an unchanged `PREFIX-NUMBER` using a 20-bit truncated SHA-256 of the board worktree's Git branch name and a 43-bit cryptographically random suffix. Different branches have stable numeric namespaces; independent worktrees sharing a branch still get fresh random suffixes. Detached HEAD, no Git, or non-Git roots retain the previous fully random 63-bit fallback; explicit and existing IDs are unchanged. Document the reduced per-branch collision budget and test real Git worktrees.
+
 ## 0.4.7 - 2026-11-07
 
 ### Fixed
