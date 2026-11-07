@@ -179,17 +179,13 @@ understand.
 
 ## Determinism, newlines, escaping
 
-- All line endings are normalized to `
-` on read (`\r
-` and `\r` are
+- All line endings are normalized to `\n` on read (`\r\n` and `\r` are
   accepted on input, never on output).
-- `CardSerializer` output always ends with exactly one trailing `
-`.
+- `CardSerializer` output always ends with exactly one trailing `\n`.
 - Field order is fixed (the table above); this makes diffs of card files
   small and predictable across every write path (CLI, `CardMutationService`,
   future tooling).
-- Bullet field values are single-line. Any `
-` inside a value is collapsed to
+- Bullet field values are single-line. Any `\n` inside a value is collapsed to
   a single space before serialization; internal whitespace runs are not
   otherwise altered.
 - No character escaping is required inside a value beyond the newline
