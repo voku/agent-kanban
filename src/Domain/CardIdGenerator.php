@@ -9,22 +9,26 @@ use Random\Randomizer;
 use voku\AgentKanban\Exception\ValidationException;
 
 /**
- * Generates collision-resistant card IDs for boards that have no external
- * ticket authority and are edited on independent Git branches.
+ * Generates collision-resistant numeric card IDs without relying on a
+ * branch-local sequence.
  *
- * The number is a uniformly random positive 63-bit integer from a CSPRNG, never
- * derived from the highest number on the current board, so two branches created
- * from the same base cannot be steered to the same value by their identical
- * starting state. The ID keeps the `PREFIX-NUMBER` shape, so every existing ID,
- * card file and external ticket ID stays valid and unchanged.
+ * With Git branch context, the high 20 bits are a truncated SHA-256 hash of
+ * the branch name and the low 43 bits come from a CSPRNG. Without branch
+ * context, the existing uniform positive 63-bit generator remains the
+ * fallback. Both modes preserve the PREFIX-NUMBER format and existing IDs.
  *
- * Probability that two of n generated IDs collide is about n^2 / 2^64; the
- * existence check below only guards the local board, it does not coordinate
- * across clones.
+ * The branch hash is not a unique branch identifier: two different branches
+ * can share its 20-bit namespace. The random suffix still distinguishes their
+ * cards. For n cards created on the same branch, the approximate collision
+ * probability is n(n-1) / 2^44 (before local occupancy retries).
  */
 final readonly class CardIdGenerator
 {
     private const int MAX_ATTEMPTS = 3;
+
+    private const int RANDOM_BITS = 43;
+
+    private const int RANDOM_MAX = (1 << self::RANDOM_BITS) - 1;
 
     /**
      * @param int $intSize bytes per PHP integer; injectable only so the unsupported-build branch is testable
@@ -34,19 +38,28 @@ final readonly class CardIdGenerator
     }
 
     /**
-     * @param Closure(CardId): bool $exists whether the candidate is already in use on the local board, including archived cards
+     * @param Closure(CardId): bool $exists whether the candidate is already in use, including archived cards
+     * @param ?string $branchName exact Git branch name; null/empty means Git context is unavailable
      *
-     * @throws ValidationException on a 32-bit PHP build, or when no unused candidate was found; an existing ID is never reused
+     * @throws ValidationException on a 32-bit PHP build, or when no unused candidate was found
      */
-    public function generate(string $prefix, Closure $exists): CardId
+    public function generate(string $prefix, Closure $exists, ?string $branchName = null): CardId
     {
         if ($this->intSize < 8) {
-            // On a 32-bit build PHP_INT_MAX is 2^31-1, so the documented 63-bit space (and its collision bound) would silently shrink.
+            // A 32-bit PHP build cannot read the existing positive 63-bit card IDs either.
             throw new ValidationException('Generated card IDs need a 64-bit PHP build (63-bit numbers); pass an explicit ID instead.', field: 'id');
         }
 
+        $branchHash = $branchName !== null && $branchName !== ''
+            ? (int) hexdec(substr(hash('sha256', $branchName), 0, 5))
+            : null;
+
         for ($attempt = 0; $attempt < self::MAX_ATTEMPTS; ++$attempt) {
-            $candidate = CardId::of($prefix, $this->randomizer->getInt(1, PHP_INT_MAX));
+            $number = $branchHash === null
+                ? $this->randomizer->getInt(1, PHP_INT_MAX)
+                : ($branchHash << self::RANDOM_BITS) | $this->randomizer->getInt(1, self::RANDOM_MAX);
+
+            $candidate = CardId::of($prefix, $number);
             if (!$exists($candidate)) {
                 return $candidate;
             }
