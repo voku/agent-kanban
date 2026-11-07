@@ -46,7 +46,7 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         $created = [];
         foreach (['a', 'b'] as $branch) {
             $worktree = $this->base . '/' . $branch;
-            $result = $this->cli($worktree, ['card', 'create', '--generate-id', '--title=follow-up from ' . $branch, '--format=json']);
+            $result = $this->cliInNewProcess($worktree, ['card', 'create', '--title=follow-up from ' . $branch, '--format=json']);
             self::assertSame(CliApplication::EXIT_OK, $result['exit'], $result['output']);
             /** @var array{card: string} $payload */
             $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
@@ -75,6 +75,19 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         self::assertSame(CliApplication::EXIT_OK, $verify['exit'], $verify['output']);
     }
 
+    public function testExplicitGenerateIdFlagRemainsSupported(): void
+    {
+        $main = $this->base . '/main';
+        $result = $this->cli($main, ['card', 'create', '--generate-id', '--title=Explicitly generated', '--format=json']);
+
+        self::assertSame(CliApplication::EXIT_OK, $result['exit'], $result['output']);
+        /** @var array{card: string} $payload */
+        $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertMatchesRegularExpression('/^TEST-[1-9][0-9]*$/', $payload['card']);
+        self::assertFileExists($main . '/todo/cards/' . $payload['card'] . '.md');
+        self::assertStringContainsString('Explicitly generated', (string) file_get_contents($main . '/todo/cards/' . $payload['card'] . '.md'));
+    }
+
     public function testExplicitDuplicateIdFailsClosed(): void
     {
         $main = $this->base . '/main';
@@ -85,6 +98,16 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
 
         self::assertNotSame(CliApplication::EXIT_OK, $duplicate['exit']);
         self::assertSame($before, (string) file_get_contents($main . '/todo/cards/TEST-7.md'), 'The existing card must stay untouched.');
+    }
+
+    public function testExplicitlyEmptyIdIsRejectedInsteadOfCreatingACard(): void
+    {
+        $main = $this->base . '/main';
+        $before = glob($main . '/todo/cards/*.md');
+        $result = $this->cli($main, ['card', 'create', '', '--title=Must not be created', '--format=json']);
+
+        self::assertSame(CliApplication::EXIT_USAGE_ERROR, $result['exit']);
+        self::assertSame($before, glob($main . '/todo/cards/*.md'));
     }
 
     public function testExplicitIdAndGenerateIdTogetherAreRejected(): void
@@ -107,6 +130,32 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         $exit = (new CliApplication($root))->run(['agent-kanban', ...$arguments]);
 
         return ['exit' => $exit, 'output' => (string) ob_get_clean()];
+    }
+
+    /**
+     * Proves that each independent Git worktree uses its own real CLI process.
+     *
+     * @param list<string> $arguments
+     *
+     * @return array{exit: int, output: string}
+     */
+    private function cliInNewProcess(string $root, array $arguments): array
+    {
+        $pipes = [];
+        $process = proc_open(
+            [PHP_BINARY, dirname(__DIR__, 2) . '/bin/agent-kanban', '--root=' . $root, ...$arguments],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+        self::assertIsResource($process);
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exit = proc_close($process);
+
+        return ['exit' => $exit, 'output' => (string) $stdout . ($exit === 0 ? '' : (string) $stderr)];
     }
 
     /**

@@ -339,10 +339,11 @@ final class CliApplication
     {
         $subcommand = $positional[1] ?? '';
         $cardIdValue = $positional[2] ?? '';
-        $generateId = $subcommand === 'create' && ArgvParser::boolOption($parsed, 'generate-id');
+        $generateId = $subcommand === 'create'
+            && (!isset($positional[2]) || ArgvParser::boolOption($parsed, 'generate-id'));
 
         if ($generateId) {
-            if ($cardIdValue !== '') {
+            if (isset($positional[2])) {
                 fwrite(STDERR, "card create takes either an explicit <ID> or --generate-id, not both.\n");
 
                 return self::EXIT_USAGE_ERROR;
@@ -827,7 +828,7 @@ final class CliApplication
               next-pull                           Cards with a configured pull priority, ranked.
               lane <LANE>                         Cards in one lane.
               card show <ID>                      Show one card.
-              card create <ID>|--generate-id --title=... [--lane=] [--status=] [--summary=] [--next=] [--validation=] [--brief=]
+              card create [<ID>|--generate-id] --title=... [--lane=] [--status=] [--summary=] [--next=] [--validation=] [--brief=]
               card update <ID> [--title=] [--status=] [--domain=] [--assignee=] [--summary=]
                                                    [--next=] [--validation=] [--priority=] [--wave=]
                                                    [--brief=] [--handoff=]

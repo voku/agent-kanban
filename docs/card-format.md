@@ -20,7 +20,7 @@ place.
 
 ## Choosing a card ID
 
-The package never picks an ID for you unless you ask. Three cases:
+When `card create` receives no explicit ID, it generates a collision-resistant ID by default. Three cases:
 
 - **External ticket authority** (Jira, GitHub, ...): use that system's ticket
   number as `<NUMBER>`. It is already unique.
@@ -31,7 +31,9 @@ The package never picks an ID for you unless you ask. Three cases:
   same value and then collide on `<PREFIX>-<NUMBER>.md` (Git `add/add`), and any
   task-linked record outside the board (Contracts, Runs, Findings, commit text)
   would still point at the wrong task after a manual renumber. Create the card
-  with `card create --generate-id`, or call `CardIdGenerator` directly.
+  with `card create --title="..."` (or the equivalent explicit `--generate-id` flag), or call `CardIdGenerator` directly.
+
+The CLI generates an ID when no `<ID>` is supplied, with or without `--generate-id`. Supplying both an explicit `<ID>` and `--generate-id` is a usage error. Explicit IDs are still accepted for externally assigned tickets or intentionally managed legacy workflows; neither their semantics nor existing cards change.
 
 `CardIdGenerator` returns `<PREFIX>-<NUMBER>` with a uniformly random positive
 63-bit `<NUMBER>` from the system CSPRNG. It never reads the board's current
