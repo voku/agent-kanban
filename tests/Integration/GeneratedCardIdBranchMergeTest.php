@@ -46,7 +46,7 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         $created = [];
         foreach (['a', 'b'] as $branch) {
             $worktree = $this->base . '/' . $branch;
-            $result = $this->cli($worktree, ['card', 'create', '--generate-id', '--title=follow-up from ' . $branch, '--format=json']);
+            $result = $this->cli($worktree, ['card', 'create', '--title=follow-up from ' . $branch, '--format=json']);
             self::assertSame(CliApplication::EXIT_OK, $result['exit'], $result['output']);
             /** @var array{card: string} $payload */
             $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
@@ -73,6 +73,19 @@ final class GeneratedCardIdBranchMergeTest extends TestCase
         }
         $verify = $this->cli($main, ['verify']);
         self::assertSame(CliApplication::EXIT_OK, $verify['exit'], $verify['output']);
+    }
+
+    public function testExplicitGenerateIdFlagRemainsSupported(): void
+    {
+        $main = $this->base . '/main';
+        $result = $this->cli($main, ['card', 'create', '--generate-id', '--title=Explicitly generated', '--format=json']);
+
+        self::assertSame(CliApplication::EXIT_OK, $result['exit'], $result['output']);
+        /** @var array{card: string} $payload */
+        $payload = json_decode($result['output'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertMatchesRegularExpression('/^TEST-[1-9][0-9]*$/', $payload['card']);
+        self::assertFileExists($main . '/todo/cards/' . $payload['card'] . '.md');
+        self::assertStringContainsString('Explicitly generated', (string) file_get_contents($main . '/todo/cards/' . $payload['card'] . '.md'));
     }
 
     public function testExplicitDuplicateIdFailsClosed(): void
