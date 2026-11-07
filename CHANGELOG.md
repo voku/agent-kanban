@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- Generate collision-resistant card IDs by default when `card create` omits an explicit ID, so normal follow-up creation in independent Git branches cannot accidentally reuse the same next sequential number. Preserve explicit external/legacy IDs and `--generate-id`; the two-worktree Git merge regression now exercises the default path.
+
 ## 0.4.6 - 2026-10-24
 
 ### Security
