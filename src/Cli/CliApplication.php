@@ -332,6 +332,38 @@ final class CliApplication
     }
 
     /**
+     * Uses the board's Git worktree, not the caller's current directory.
+     * Detached HEAD, missing Git, and non-repositories keep random-only IDs.
+     */
+    private function gitBranchName(string $rootPath): ?string
+    {
+        $pipes = [];
+        $process = @proc_open(
+            ['git', '-C', $rootPath, 'symbolic-ref', '--quiet', '--short', 'HEAD'],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+
+        if (!is_resource($process)) {
+            return null;
+        }
+
+        fclose($pipes[0]);
+        $branch = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+
+        if (proc_close($process) !== 0 || $branch === false) {
+            return null;
+        }
+
+        $branch = trim($branch);
+
+        return $branch === '' ? null : $branch;
+    }
+
+    /**
      * @param list<string> $positional
      * @param ParsedArgs $parsed
      */
@@ -349,7 +381,11 @@ final class CliApplication
                 return self::EXIT_USAGE_ERROR;
             }
             $cardIdValue = (new CardIdGenerator())
-                ->generate($context->config->projectPrefix, $context->repository->isIdentityOccupied(...))
+                ->generate(
+                    $context->config->projectPrefix,
+                    $context->repository->isIdentityOccupied(...),
+                    $this->gitBranchName($context->rootPath),
+                )
                 ->toString();
         }
 
