@@ -20,7 +20,7 @@ place.
 
 ## Choosing a card ID
 
-The package never picks an ID for you unless you ask. Three cases:
+When `card create` receives no explicit ID, it generates a collision-resistant ID by default. Three cases:
 
 - **External ticket authority** (Jira, GitHub, ...): use that system's ticket
   number as `<NUMBER>`. It is already unique.
@@ -31,7 +31,9 @@ The package never picks an ID for you unless you ask. Three cases:
   same value and then collide on `<PREFIX>-<NUMBER>.md` (Git `add/add`), and any
   task-linked record outside the board (Contracts, Runs, Findings, commit text)
   would still point at the wrong task after a manual renumber. Create the card
-  with `card create --generate-id`, or call `CardIdGenerator` directly.
+  with `card create --title="..."` (or the equivalent explicit `--generate-id` flag), or call `CardIdGenerator` directly.
+
+The CLI generates an ID only when no `<ID>` is supplied (or when `--generate-id` is supplied explicitly). Explicit IDs are still accepted for externally assigned tickets or intentionally managed legacy workflows; neither their semantics nor existing cards change.
 
 `CardIdGenerator` returns `<PREFIX>-<NUMBER>` with a uniformly random positive
 63-bit `<NUMBER>` from the system CSPRNG. It never reads the board's current
@@ -177,13 +179,17 @@ understand.
 
 ## Determinism, newlines, escaping
 
-- All line endings are normalized to `\n` on read (`\r\n` and `\r` are
+- All line endings are normalized to `
+` on read (`\r
+` and `\r` are
   accepted on input, never on output).
-- `CardSerializer` output always ends with exactly one trailing `\n`.
+- `CardSerializer` output always ends with exactly one trailing `
+`.
 - Field order is fixed (the table above); this makes diffs of card files
   small and predictable across every write path (CLI, `CardMutationService`,
   future tooling).
-- Bullet field values are single-line. Any `\n` inside a value is collapsed to
+- Bullet field values are single-line. Any `
+` inside a value is collapsed to
   a single space before serialization; internal whitespace runs are not
   otherwise altered.
 - No character escaping is required inside a value beyond the newline
