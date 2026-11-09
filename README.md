@@ -17,6 +17,20 @@ machine-readable (JSON) output for coding agents and CI.
 Local-first, offline-capable, auditable through Git, and independent of any
 specific LLM or coding-agent provider.
 
+## Where to work in this repository
+
+Card Markdown is the durable board representation; the library owns its semantics, not approval or execution. Start here for repository changes:
+
+| Concern | Source of truth |
+| --- | --- |
+| Card data and its format | [`src/Domain/`](src/Domain/) and [card format](docs/card-format.md) |
+| Board policy and configuration | [`src/Config/`](src/Config/) and [configuration](docs/configuration.md) |
+| Safe mutations and conflicts | [`src/Mutation/`](src/Mutation/) and [concurrency](docs/concurrency.md) |
+| Queries, validation and verification | [`src/Query/`](src/Query/), [`src/Verification/`](src/Verification/) and [`src/Board.php`](src/Board.php) |
+| CLI / typed consumers | [`src/Cli/`](src/Cli/), [CLI guide](docs/cli.md) and [PHP API](docs/php-api.md) |
+
+A card moving lanes does not approve a Contract, authorize edits, or prove that validation passed.
+
 ## What this is
 
 - A typed PHP API (`docs/php-api.md`) plus a standalone CLI
