@@ -239,11 +239,10 @@ The removed pre-1.0 generated board Markdown mixed current board data with a
 static operating prompt. That policy prose is not board state and does not
 belong in this package's runtime model.
 
-The historical text remains in
-[`docs/legacy-operating-prompt.md`](legacy-operating-prompt.md) as migration
-material. Current managed agent guidance belongs in the `agent-loop` setup and
-recall path, with explicit capability/version metadata so it can be checked
-against the installed runtime.
+The retired text is available in [Git history](https://github.com/voku/agent-kanban/blob/5bd1b4a3fc494086dbcffedd379ab6a9f4bb9379/docs/legacy-operating-prompt.md)
+for migration analysis, not as a live prompt source. Current project-specific
+agent guidance belongs in the project's decisions or the governed `agent-loop`
+setup/recall path, with capability/version metadata where appropriate.
 
 ## Executable contract fixtures
 
