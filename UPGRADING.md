@@ -131,11 +131,11 @@ process prose (Board Policy, Kanban Operating Model, Lane Rules, Card
 Update Protocol, Agent Pull Checklist, Context Model) that told the agent
 how to behave around the board — hard-coded WIP limit, tracker name,
 `MEMORY.md`/`make memory_review` instructions included. That's policy, not
-board state, so it has no replacement inside `agent-kanban` 1.0. It is
-preserved verbatim, with a mapping to the typed `agent-kanban` calls that
-should feed an equivalent template, in `docs/legacy-operating-prompt.md` —
-the intended new home for it is `voku/agent-recall-compiler`, called from
-`agent-loop`.
+board state, so it has no replacement inside `agent-kanban` 1.0. The removed
+prompt is available in [Git history](https://github.com/voku/agent-kanban/blob/5bd1b4a3fc494086dbcffedd379ab6a9f4bb9379/docs/legacy-operating-prompt.md)
+for historical migration analysis; it is not a current instruction source.
+Project-specific workflow instructions belong to their project or governed
+`agent-loop` owner, not a generic board renderer.
 
 ### Recommended follow-up (optional, not required)
 
